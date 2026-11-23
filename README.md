@@ -3,10 +3,10 @@
 **Make your mouse on Ubuntu feel like it does on a Mac.**
 
 Coming from macOS, the mouse on Linux feels off: slow, precise movements
-are too fast, fast flicks don't go far enough. MacFeel fixes that with a
-port of Apple's own pointer-acceleration algorithm, checked against
-measurements of a real Mac. Install it with one command, and your mouse
-moves the way you're used to. A top-bar icon shows it's working, and a
+are too fast, fast flicks don't go far enough, and the scroll wheel never
+picks up speed. MacFeel fixes that with a port of Apple's own pointer and
+scroll acceleration, checked against measurements of a real Mac. Install it
+with one command, and your mouse moves and scrolls the way you're used to. A top-bar icon shows it's working, and a
 settings window has the Mac's Tracking-speed slider.
 
 > [!NOTE]
@@ -151,8 +151,17 @@ desktop, it works on Wayland and X11.
 
 The curve is a port of Apple's open-source HID code. Current macOS uses a
 table-based algorithm, and MacFeel's port reproduces cursor movement
-measured on a real Mac running macOS 15. The full story, sources and
-numbers are in [docs/mac-curve.md](docs/mac-curve.md).
+measured on a real Mac running macOS 15.
+
+Scrolling works the same way: MacFeel estimates how fast the wheel is
+turning from the last few notches, exactly like macOS, and scrolls further
+per notch the faster you spin: 1:1 for slow notches, about 2× at 10 notches
+per second, 7× at 20, up to ~9×. How far one notch scrolls on screen is
+decided by each Linux app, which is what *Scroll speed* and the
+calibration page are for.
+
+The full story, sources and numbers are in
+[docs/mac-curve.md](docs/mac-curve.md).
 
 ## FAQ
 
