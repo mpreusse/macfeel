@@ -24,6 +24,18 @@ def read_allowed_uids(path):
     return uids
 
 
+def socket_alive(path):
+    """Is a daemon already listening on this socket?"""
+    probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        probe.connect(path)
+        return True
+    except OSError:
+        return False
+    finally:
+        probe.close()
+
+
 class ClientConn:
     def __init__(self, server, sock, uid):
         self.server, self.sock, self.uid = server, sock, uid

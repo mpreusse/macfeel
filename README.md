@@ -31,16 +31,21 @@ releases the grab and the mouse works normally again immediately.
 | `macfeel/devices.py` | Which devices to grab (pure rules) and gathering facts from udev |
 | `macfeel/daemon.py` | Main loop: discovery, hotplug, config reload, watchdog |
 | `macfeel/control.py`, `ipc.py` | Control socket (server and client) |
-| `macfeel/tray.py`, `settings.py` | Tray icon (GTK3 + AppIndicator), settings window (GTK4 + libadwaita) |
+| `macfeel/tray.py`, `settings.py` | Tray icon (appindicator-glib, no toolkit), settings window (GTK4 + libadwaita) |
+| `macfeel/__main__.py`, `macfeel.sh` | One-command launcher for development |
 | `macfeel/gnome.py`, `uilink.py` | GNOME mouse settings handling; UI connection to the daemon |
 | `tools/record.py` | Record a mouse's raw events for replay tests |
 | `tools/mac-probe.sh` | Read-only: dump macOS's live acceleration settings |
 
 ## Running it manually (development)
 
-Requirements: `sudo apt install python3-evdev python3-pyudev`, and
-membership in the `input` group (for read access to `/dev/input/event*` and
-`/dev/uinput`).
+Requirements:
+```bash
+sudo apt install python3-evdev python3-pyudev python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 \
+                 gir1.2-ayatanaappindicatorglib-2.0
+```
+plus membership in the `input` group (for read access to
+`/dev/input/event*` and `/dev/uinput`).
 
 1. **If you use Toshy,** make it ignore your mouse; see
    [decisions.md](docs/decisions.md#toshy-must-ignore-the-physical-mouse).
@@ -57,16 +62,15 @@ membership in the `input` group (for read access to `/dev/input/event*` and
    gsettings set org.gnome.desktop.peripherals.mouse accel-profile flat
    gsettings set org.gnome.desktop.peripherals.mouse speed 0
    ```
-3. **Run the daemon, tray and settings window**, each in its own regular
-   terminal (not VS Code's, see
-   [decisions.md](docs/decisions.md#tray-gtk3--ayatanaappindicator-as-specified-like-toshy)):
+3. **Start everything with one command:**
    ```bash
-   python3 -m macfeel.daemon        # Ctrl+C gives the mouse back
-   python3 -m macfeel.tray          # top-bar icon; "Settings…" opens the window
-   python3 -m macfeel.settings      # or open the settings window directly
+   ./macfeel.sh                   # daemon + tray + settings window; Ctrl+C stops all
+   ./macfeel.sh --no-settings     # without opening the settings window
    ```
-   Settings are stored in `macfeel-dev.json` in the project folder (only
-   values that differ from the defaults).
+   This works from any terminal, including VS Code's. Settings are stored in
+   `macfeel-dev.json` in the project folder (only values that differ from
+   the defaults). The parts can also run separately: `python3 -m
+   macfeel.daemon`, `macfeel.tray`, `macfeel.settings`.
 
 ## Settings
 

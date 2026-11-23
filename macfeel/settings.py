@@ -13,7 +13,9 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
+gi.require_version("Gsk", "4.0")
+gi.require_version("Graphene", "1.0")
+from gi.repository import Adw, Gio, GLib, Graphene, Gsk, Gtk  # noqa: E402
 
 from . import config as cfg  # noqa: E402
 from . import curve  # noqa: E402
@@ -41,23 +43,29 @@ def step_label(index):
     return f"{abs(diff)} step{'s' if abs(diff) > 1 else ''} {word}"
 
 
-class CurveGraph(Gtk.DrawingArea):
+def rgba(color, alpha):
+    c = color.copy()
+    c.alpha = alpha
+    return c
+
+
+class CurveGraph(Gtk.Widget):
     """Gain vs. mouse speed for the current settings, with a live dot.
 
     x: counts per report (how far the mouse moved in one report = speed).
     y: pixels per count, relative to Apple's default slow-speed gain
        (1× = precise slow movement). Dashed: the Mac default, for comparison.
+
+    Drawn with GTK4's snapshot/path API, so no cairo bindings are needed.
     """
 
     X_MAX = 150.0  # counts per report at 400 dpi; the x axis is sqrt-scaled
 
     def __init__(self):
         super().__init__()
-        self.set_content_height(230)
+        self.set_size_request(-1, 230)
         self.set_hexpand(True)
-        self.set_draw_func(self.draw)
         self.dpi = curve.MAC_DEFAULT_DPI
-        self.pointer = {}
         self.reference = curve.MacCurve()
         self.unit = self.reference.base          # px per count that is shown as "1×"
         self.curve = self.reference
@@ -65,7 +73,6 @@ class CurveGraph(Gtk.DrawingArea):
         self.dot_alpha = 0.0
 
     def set_pointer(self, pointer, dpi=None):
-        self.pointer = pointer
         self.dpi = dpi or self.dpi
         self.curve = curve.from_config(pointer, self.dpi)
         self.reference = curve.MacCurve(dpi=self.dpi)
@@ -79,11 +86,14 @@ class CurveGraph(Gtk.DrawingArea):
             self.dot_alpha *= 0.85
         self.queue_draw()
 
-    def draw(self, area, cr, width, height):
+    def do_snapshot(self, snapshot):
+        width, height = self.get_width(), self.get_height()
         fg = self.get_color()
         accent = Adw.StyleManager.get_default().get_accent_color_rgba()
         left, right, top, bottom = 36, 12, 10, 26
         w, h = width - left - right, height - top - bottom
+        if w <= 0 or h <= 0:
+            return
 
         samples = [self.X_MAX * (i / 200) ** 2 for i in range(1, 201)]
         gains = [self.curve.px_per_count(v) / self.unit for v in samples]
@@ -93,52 +103,43 @@ class CurveGraph(Gtk.DrawingArea):
         def px(v, g):
             return left + w * math.sqrt(v / self.X_MAX), top + h * (1 - g / y_max)
 
-        # grid + y labels
-        cr.set_line_width(1)
+        def line(points, color, width_px, dash=None):
+            builder = Gsk.PathBuilder.new()
+            for i, (x, y) in enumerate(points):
+                (builder.line_to if i else builder.move_to)(x, y)
+            stroke = Gsk.Stroke.new(width_px)
+            if dash:
+                stroke.set_dash(dash)
+            snapshot.append_stroke(builder.to_path(), stroke, color)
+
+        # grid + labels
         step = 1 if y_max <= 6 else 2
         for g in range(0, int(y_max) + 1, step):
             _, y = px(0, g)
-            cr.set_source_rgba(fg.red, fg.green, fg.blue, 0.12)
-            cr.move_to(left, y)
-            cr.line_to(left + w, y)
-            cr.stroke()
-            self.text(cr, f"{g}×", 4, y - 8, fg, 0.6)
-        self.text(cr, "slow", left, top + h + 6, fg, 0.6)
-        self.text(cr, "mouse speed", left + w / 2 - 38, top + h + 6, fg, 0.6)
-        self.text(cr, "fast", left + w - 26, top + h + 6, fg, 0.6)
-
-        def polyline(values):
-            for i, (v, g) in enumerate(zip(samples, values)):
-                (cr.line_to if i else cr.move_to)(*px(v, g))
+            line([(left, y), (left + w, y)], rgba(fg, 0.12), 1)
+            self.text(snapshot, f"{g}×", 4, y - 8, rgba(fg, 0.6))
+        self.text(snapshot, "slow", left, top + h + 6, rgba(fg, 0.6))
+        self.text(snapshot, "mouse speed", left + w / 2 - 38, top + h + 6, rgba(fg, 0.6))
+        self.text(snapshot, "fast", left + w - 26, top + h + 6, rgba(fg, 0.6))
 
         # Mac default (dashed reference), then the active curve
-        cr.set_source_rgba(fg.red, fg.green, fg.blue, 0.35)
-        cr.set_line_width(1.5)
-        cr.set_dash([5, 4])
-        polyline(ref)
-        cr.stroke()
-        cr.set_dash([])
-        cr.set_source_rgba(accent.red, accent.green, accent.blue, 1)
-        cr.set_line_width(2.5)
-        polyline(gains)
-        cr.stroke()
+        line([px(v, g) for v, g in zip(samples, ref)], rgba(fg, 0.35), 1.5, [5, 4])
+        line([px(v, g) for v, g in zip(samples, gains)], accent, 2.5)
 
         if self.dot and self.dot_alpha > 0.05:
             v, g = self.dot
             x, y = px(min(v, self.X_MAX), min(g, y_max))
-            cr.set_source_rgba(accent.red, accent.green, accent.blue, 0.25 * self.dot_alpha)
-            cr.arc(x, y, 11, 0, 2 * math.pi)
-            cr.fill()
-            cr.set_source_rgba(accent.red, accent.green, accent.blue, self.dot_alpha)
-            cr.arc(x, y, 5, 0, 2 * math.pi)
-            cr.fill()
+            for radius, alpha in ((11, 0.25), (5, 1.0)):
+                builder = Gsk.PathBuilder.new()
+                builder.add_circle(Graphene.Point().init(x, y), radius)
+                snapshot.append_fill(builder.to_path(), Gsk.FillRule.WINDING,
+                                     rgba(accent, alpha * self.dot_alpha))
 
-    def text(self, cr, s, x, y, color, alpha):
-        layout = self.create_pango_layout(s)
-        cr.set_source_rgba(color.red, color.green, color.blue, alpha)
-        cr.move_to(x, y)
-        from gi.repository import PangoCairo
-        PangoCairo.show_layout(cr, layout)
+    def text(self, snapshot, s, x, y, color):
+        snapshot.save()
+        snapshot.translate(Graphene.Point().init(x, y))
+        snapshot.append_layout(self.create_pango_layout(s), color)
+        snapshot.restore()
 
 
 class Window(Adw.ApplicationWindow):

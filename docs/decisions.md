@@ -152,16 +152,23 @@ restoring GNOME's acceleration, the mouse then feels like stock Ubuntu.
 
 ## User interface
 
-### Tray: GTK3 + AyatanaAppIndicator (as specified), like Toshy
+### Tray: libayatana-appindicator-glib (no GUI toolkit); settings: GTK4 (spec §6.1 said: GTK3 + AppIndicator)
 
-GTK3 first seemed to crash on this system under Wayland ("schema
-`org.gnome.settings-daemon.plugins.xsettings` does not contain a key named
-`antialiasing`"). The cause is VS Code, which is installed as a snap: its
-terminals leak the snap's own, older GSettings schemas through
-`GSETTINGS_SCHEMA_DIR` and `XDG_DATA_DIRS`. In the normal session
-environment (autostart, app launcher, a regular terminal), GTK3 works;
-Toshy's tray uses the same stack. When launching UI processes from VS
-Code's terminal, unset those variables first.
+The tray uses `libayatana-appindicator-glib`
+(`gir1.2-ayatanaappindicatorglib-2.0`): a GLib-only reimplementation. The
+menu is a `Gio.Menu` with `Gio` actions (prefix `indicator.`), and Ubuntu's
+AppIndicator extension draws it. There is no GTK3 anywhere, so GTK4 +
+libadwaita (settings window) is the only toolkit. This replaces
+`gir1.2-gtk-3.0` and `gir1.2-ayatanaappindicator3-0.1`, the latter of which
+prints a deprecation warning pointing to the glib version.
+
+The curve graph draws with GTK4's snapshot/path API (`Gsk.PathBuilder`),
+not cairo, so `python3-gi-cairo` isn't needed.
+
+**VS Code note.** VS Code is installed as a snap, and its terminals leak
+the snap's own GSettings schemas (`GSETTINGS_SCHEMA_DIR`, `XDG_DATA_DIRS`).
+That makes GTK3 abort under Wayland and can confuse other GTK code.
+`python3 -m macfeel` strips those variables for the processes it starts.
 
 ## Packaging
 

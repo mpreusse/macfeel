@@ -302,6 +302,8 @@ def main(argv=None):
                         help="UIDs allowed to use the control socket, one per line")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(levelname)s %(message)s")
+    if control.socket_alive(args.socket):
+        sys.exit(f"macfeel: another daemon is already running ({args.socket})")
 
     daemon = Daemon(args.config, args.socket, control.read_allowed_uids(args.allow_file))
 
