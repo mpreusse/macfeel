@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=MacFeel tray icon
+Comment=Shows MacFeel's status in the top bar
+Exec=macfeel-tray
+Icon=io.github.macfeel.Settings
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+OnlyShowIn=GNOME;Unity;KDE;XFCE;

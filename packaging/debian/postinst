@@ -1,0 +1,36 @@
+#!/bin/sh
+# MacFeel post-install: system user, control-socket allowlist, udev, service.
+set -e
+[ "$1" = "configure" ] || exit 0
+
+# Dedicated system user without login shell or home.
+if ! getent passwd macfeel >/dev/null; then
+    adduser --system --group --no-create-home --home /nonexistent --shell /usr/sbin/nologin macfeel
+fi
+
+# Who may talk to the daemon: the user who ran "sudo apt install" (SUDO_USER /
+# PKEXEC_UID), recorded once. More users: add their UID to this file.
+mkdir -p /etc/macfeel
+touch /etc/macfeel/allowed-uids
+uid=""
+if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then
+    uid=$(id -u "$SUDO_USER" 2>/dev/null || true)
+elif [ -n "$PKEXEC_UID" ]; then
+    uid="$PKEXEC_UID"
+fi
+if [ -n "$uid" ] && ! grep -qx "$uid" /etc/macfeel/allowed-uids; then
+    echo "$uid" >> /etc/macfeel/allowed-uids
+fi
+
+# Apply the udev rule to devices that are already connected (no reboot needed).
+udevadm control --reload || true
+udevadm trigger --subsystem-match=input --action=change || true
+udevadm trigger --subsystem-match=misc --sysname-match=uinput --action=change || true
+udevadm settle --timeout=5 || true
+
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload
+    systemctl enable macfeeld.service >/dev/null
+    systemctl restart macfeeld.service
+fi
+exit 0

@@ -1,0 +1,1 @@
+packaging/bin/macfeel-uninstall

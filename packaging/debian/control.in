@@ -1,0 +1,13 @@
+Package: macfeel
+Version: @VERSION@
+Architecture: all
+Maintainer: MacFeel developers <macfeel@users.noreply.github.com>
+Depends: python3 (>= 3.12), python3-evdev, python3-pyudev, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, acl, systemd, udev, adduser
+Section: utils
+Priority: optional
+Homepage: https://github.com/OWNER/macfeel
+Description: Mac-like mouse acceleration for GNOME
+ Makes an external mouse feel like on macOS, using a port of Apple's own
+ pointer-acceleration algorithm. A small system service applies the curve
+ below the compositor (Wayland and X11); a tray icon and a settings window
+ with a live curve graph run in the desktop session.

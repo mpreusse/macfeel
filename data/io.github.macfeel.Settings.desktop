@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=MacFeel
+GenericName=Mouse Settings
+Comment=Mac-like mouse acceleration
+Exec=macfeel-settings
+Icon=io.github.macfeel.Settings
+Categories=Settings;HardwareSettings;
+Keywords=mouse;pointer;acceleration;mac;scroll;
+StartupNotify=true

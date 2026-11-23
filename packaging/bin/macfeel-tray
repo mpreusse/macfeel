@@ -1,0 +1,4 @@
+#!/bin/sh
+# Installed by the macfeel package.
+export PYTHONPATH=/usr/lib/macfeel
+exec /usr/bin/python3 -m macfeel.tray "$@"

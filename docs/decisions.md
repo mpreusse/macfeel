@@ -198,6 +198,39 @@ That makes GTK3 abort under Wayland and can confuse other GTK code.
 
 ## Packaging
 
+### Updates: GitHub Releases first, an apt repository later
+
+A `.deb` installed from a file is never updated by apt. For now, re-running
+the installer fetches the newest release (`releases/latest/download/macfeel_all.deb`,
+a fixed asset name). Once the project is stable, the plan is a signed apt
+repository on GitHub Pages, built by GitHub Actions on each release, which
+`install.sh` adds so that updates arrive through the normal Ubuntu updater.
+A Launchpad PPA is the alternative. There is no in-app update check (privacy).
+
+### systemd hardening: no `PrivateNetwork=yes` (spec §6.3 listed it)
+
+udev's hotplug events reach the daemon over a netlink socket. A private
+network namespace never receives them, so hotplug would silently break.
+Network access is blocked with `RestrictAddressFamilies=AF_UNIX AF_NETLINK`
+and `IPAddressDeny=any` instead. The rest of the spec's list is used, plus
+more (`SystemCallFilter=@system-service`, `MemoryDenyWriteExecute`, an empty
+capability set, …). The packaged daemon was run under these restrictions
+as a transient unit to check that Python, pyudev and evdev work.
+
+### The udev ACL rule covers combined mouse/keyboard nodes
+
+Because combined nodes are grabbed by default, the rule grants the
+`macfeel` user access to everything udev tags `ID_INPUT_MOUSE=1`, except
+touchpads, tablets, joysticks, pointing sticks and uinput devices, even if
+the node also has `ID_INPUT_KEYBOARD=1`. Real keyboards (without the mouse
+tag) stay inaccessible.
+
+### Control-socket allowlist: the user who ran `sudo apt install`
+
+The package's postinst records `SUDO_USER`'s (or `PKEXEC_UID`'s) UID in
+`/etc/macfeel/allowed-uids`. That avoids a group and the re-login it would
+require.
+
 ### System Python, distributed as a .deb (spec §10 said: install.sh copying to /usr/local)
 
 - **Runtime.** Ubuntu's `python3` plus packaged `python3-evdev`,

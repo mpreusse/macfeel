@@ -3,8 +3,27 @@
 Makes an external mouse on Ubuntu (GNOME, Wayland or X11) move like it does
 on macOS, using a port of Apple's own pointer-acceleration algorithm.
 
-**Status:** early development. The daemon, tray icon and settings window
-run manually from a terminal. The installer comes next.
+**Status:** early development, installable.
+
+## Install
+
+```bash
+./install.sh            # from this checkout: builds the .deb and installs it
+```
+Once published on GitHub, the same works without a checkout:
+`curl -fsSL https://raw.githubusercontent.com/OWNER/macfeel/main/install.sh | bash`.
+
+This installs a system service (`macfeeld`, running as its own `macfeel`
+user with access to mice and `/dev/uinput` only), a tray icon that starts at
+login, and the "MacFeel" settings app. No reboot or re-login is needed.
+Re-run it to update.
+
+**Uninstall:** `macfeel-uninstall`. It restores GNOME's mouse settings and
+removes everything (service, udev rule, system user, config).
+
+If you use Toshy, see
+[decisions.md](docs/decisions.md#toshy-must-ignore-the-physical-mouse); the
+settings window shows the exact lines to add.
 
 - [docs/decisions.md](docs/decisions.md): where and why we deviate from the
   original [specs.md](specs.md); answers to its open questions.
@@ -37,8 +56,13 @@ releases the grab and the mouse works normally again immediately.
 | `macfeel/gnome.py`, `uilink.py` | GNOME mouse settings handling; UI connection to the daemon |
 | `tools/record.py` | Record a mouse's raw events for replay tests |
 | `tools/mac-probe.sh` | Read-only: dump macOS's live acceleration settings |
+| `tools/build-deb.sh`, `packaging/` | Build `dist/macfeel_<version>_all.deb` |
+| `install.sh`, `uninstall.sh` | Install / remove (uninstall is also installed as `macfeel-uninstall`) |
+| `data/` | systemd unit, udev rule, desktop entries, icons |
 
-## Running it manually (development)
+## Running it from the source tree (development)
+
+If MacFeel is installed, stop the service first: `sudo systemctl stop macfeeld`.
 
 Requirements:
 ```bash

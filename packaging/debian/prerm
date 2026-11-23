@@ -1,0 +1,7 @@
+#!/bin/sh
+# Stop the daemon before files go away; the kernel releases the mouse at once.
+set -e
+if [ -d /run/systemd/system ] && [ "$1" = "remove" ]; then
+    systemctl disable --now macfeeld.service >/dev/null 2>&1 || true
+fi
+exit 0

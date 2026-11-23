@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e
+case "$1" in
+    remove|purge)
+        [ -d /run/systemd/system ] && systemctl daemon-reload || true
+        # Drop the ACLs our rule added (the rule file is already gone).
+        udevadm control --reload || true
+        for dev in /dev/input/event* /dev/uinput; do
+            [ -e "$dev" ] && setfacl -x u:macfeel "$dev" 2>/dev/null || true
+        done
+        ;;
+esac
+if [ "$1" = "purge" ]; then
+    rm -rf /var/lib/macfeel /etc/macfeel
+    if getent passwd macfeel >/dev/null; then
+        deluser --system macfeel >/dev/null 2>&1 || true
+    fi
+    getent group macfeel >/dev/null && delgroup --system macfeel >/dev/null 2>&1 || true
+fi
+exit 0
