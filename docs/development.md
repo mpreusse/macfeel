@@ -21,6 +21,7 @@ mouse ──evdev (grabbed)──▶ macfeeld ──uinput──▶ "<name> (Mac
 | `macfeel/tray.py`, `sni.py` | Tray icon and menu, published over D-Bus (StatusNotifierItem + dbusmenu) |
 | `macfeel/settings.py` | Settings window (GTK4 + libadwaita) |
 | `macfeel/gnome.py`, `uilink.py` | GNOME mouse settings; UI connection to the daemon |
+| `macfeel/cli.py` | The `macfeel` command (status, pause/resume, settings, …) |
 | `macfeel/__main__.py`, `macfeel.sh` | One-command launcher for development |
 | `tools/calibrate.html` | Calibration page (also installed to `/usr/share/macfeel/`) |
 | `tools/mac-probe.sh` | Read-only: dump macOS's live acceleration settings |

@@ -9,7 +9,7 @@ trap 'rm -rf "$STAGE"' EXIT
 
 install -d "$STAGE/usr/lib/macfeel/macfeel"
 install -m 644 macfeel/*.py "$STAGE/usr/lib/macfeel/macfeel/"
-install -D -m 755 -t "$STAGE/usr/bin" packaging/bin/macfeeld packaging/bin/macfeel-tray packaging/bin/macfeel-settings packaging/bin/macfeel-uninstall
+install -D -m 755 -t "$STAGE/usr/bin" packaging/bin/macfeel packaging/bin/macfeeld packaging/bin/macfeel-tray packaging/bin/macfeel-settings packaging/bin/macfeel-uninstall
 install -D -m 644 data/macfeeld.service "$STAGE/usr/lib/systemd/system/macfeeld.service"
 install -D -m 644 data/70-macfeel.rules "$STAGE/usr/lib/udev/rules.d/70-macfeel.rules"
 install -D -m 644 data/macfeel-tray.desktop "$STAGE/etc/xdg/autostart/macfeel-tray.desktop"

@@ -53,7 +53,7 @@ tested so far.
 **Uninstall:**
 
 ```bash
-macfeel-uninstall
+macfeel uninstall
 ```
 
 This restores GNOME's mouse settings and removes everything: service, udev
@@ -81,6 +81,10 @@ The **MacFeel** app (also under *Settings…* in the tray menu) has:
   like on a Mac. *Scroll speed* sets how far one notch goes.
 - **Mice**: turn MacFeel on or off per mouse.
 - **A test area** to move and scroll in.
+
+From a terminal, `macfeel` shows the status, and `macfeel pause`,
+`macfeel resume`, `macfeel settings` and `macfeel calibrate` do what they
+say (`macfeel -h` lists everything).
 
 While MacFeel is active, GNOME's own mouse acceleration is switched off so
 the two don't stack. Your original setting is restored when you pause or

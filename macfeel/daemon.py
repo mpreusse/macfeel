@@ -24,7 +24,7 @@ import time
 import pyudev
 
 from . import config as cfg
-from . import control, curve, devices
+from . import __version__, control, curve, devices
 from .pipeline import DevicePipeline, PointerSettings
 
 log = logging.getLogger("macfeel")
@@ -184,7 +184,7 @@ class Daemon:
     def status_payload(self):
         conf = self.store.config
         devs = [{k: v for k, v in st.items() if k != "retry_at"} for st in self.status.values()]
-        return {"enabled": conf["enabled"], "grabbed": len(self.pipelines),
+        return {"version": __version__, "enabled": conf["enabled"], "grabbed": len(self.pipelines),
                 "devices": sorted(devs, key=lambda d: d["name"])}
 
     def handle(self, client, msg):
