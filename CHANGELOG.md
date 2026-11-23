@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- New `macfeel` command: status, pause/resume, settings, calibrate,
+  uninstall (`macfeel -h`).
+- `macfeel status` shows the version of the running service.
+
 ## 0.2.0
 
 First public release.
@@ -19,7 +25,6 @@ First public release.
 - Warns when another program (e.g. Toshy) has captured a mouse and shows the
   fix.
 - Calibration page to match cursor travel and scrolling against your Mac.
-- `macfeel` command: status, pause/resume, settings, calibrate, uninstall.
 - Debian package, `install.sh` and `macfeel uninstall`. Sandboxed system
   service; GNOME's own acceleration is switched off while active and
   restored afterwards.
