@@ -137,9 +137,40 @@ def list_event_nodes():
         key=lambda p: int(p.rsplit("event", 1)[1]))
 
 
+# Remappers that grab input devices, recognised by their virtual devices' names.
+KNOWN_GRABBERS = {
+    "xwaykeyz": "Toshy",
+    "keyszer": "Keyszer",
+    "xkeysnail": "xkeysnail",
+    "input-remapper": "input-remapper",
+    "keyd virtual": "keyd",
+    "kanata": "kanata",
+    "kmonad": "KMonad",
+    "makima": "makima",
+}
+
+
+def guess_grabber(sysfs="/sys/class/input"):
+    """Which known remapper is running? (The kernel can't tell us who holds a grab.)"""
+    try:
+        entries = os.listdir(sysfs)
+    except OSError:
+        return None
+    for entry in entries:
+        try:
+            with open(os.path.join(sysfs, entry, "name")) as f:
+                name = f.read().strip().lower()
+        except OSError:
+            continue
+        for marker, program in KNOWN_GRABBERS.items():
+            if marker in name:
+                return program
+    return None
+
+
 def describe_open_error(err):
     if err.errno in (errno.EACCES, errno.EPERM):
         return "no permission"
     if err.errno == errno.EBUSY:
-        return "busy: grabbed by another program (e.g. Toshy - add it to Toshy's ignore_devices)"
+        return "busy: captured by another program"
     return f"error: {err.strerror}"

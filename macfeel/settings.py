@@ -7,6 +7,7 @@ All changes go to the daemon via the control socket (never to files).
 """
 
 import math
+import os
 import sys
 
 import gi
@@ -19,6 +20,7 @@ from gi.repository import Adw, Gio, GLib, Graphene, Gsk, Gtk  # noqa: E402
 
 from . import config as cfg  # noqa: E402
 from . import curve  # noqa: E402
+from .devices import VIRTUAL_SUFFIX  # noqa: E402
 from .gnome import GnomeMouse  # noqa: E402
 from .uilink import DaemonLink  # noqa: E402
 
@@ -362,7 +364,9 @@ class Window(Adw.ApplicationWindow):
         conf_devices = (self.config or cfg.DEFAULTS)["devices"]
         for dev in devices:
             toggleable = dev["id"] and (dev["grabbed"] or dev["reason"] in TOGGLEABLE)
-            if not toggleable:
+            if dev.get("busy_by"):
+                row = self.captured_row(dev)
+            elif not toggleable:
                 row = Adw.ActionRow(title=dev["name"], subtitle=dev["reason"], sensitive=False)
             else:
                 row = Adw.ExpanderRow(title=dev["name"], subtitle=dev["reason"])
@@ -381,6 +385,40 @@ class Window(Adw.ApplicationWindow):
             row = Adw.ActionRow(title="No mouse found", subtitle="Connect a mouse; it appears here automatically")
             self.devices_group.add(row)
             self.device_rows.append(row)
+
+    def captured_row(self, dev):
+        """A mouse another program has grabbed: explain and show the fix."""
+        who = dev["busy_by"]
+        row = Adw.ExpanderRow(title=dev["name"], subtitle=f"Captured by {who} — moves without the Mac curve")
+        row.add_prefix(Gtk.Image(icon_name="dialog-warning-symbolic", css_classes=["warning"]))
+        if who == "Toshy":
+            lines = f"'{dev['name']}',\n'{dev['name']}{VIRTUAL_SUFFIX}',"
+            how = Adw.ActionRow(
+                title="Tell Toshy to leave this mouse to MacFeel",
+                subtitle="Add these two lines to <tt>ignore_devices</tt> in "
+                         "<tt>~/.config/toshy/toshy_config.py</tt>, then run <tt>toshy-config-restart</tt>. "
+                         "Your keyboard stays with Toshy, and Cmd+click keeps working.",
+                subtitle_lines=0)
+            open_btn = Gtk.Button(label="Open Toshy config", valign=Gtk.Align.CENTER)
+            open_btn.connect("clicked", lambda *_: Gio.AppInfo.launch_default_for_uri(
+                "file://" + os.path.expanduser("~/.config/toshy/toshy_config.py"), None))
+            how.add_suffix(open_btn)
+        else:
+            lines = f"'{dev['name']}'"
+            how = Adw.ActionRow(
+                title=f"Tell {who} to leave this mouse to MacFeel",
+                subtitle=f"Configure {who} to ignore this device by its name, or stop it.",
+                subtitle_lines=0)
+        row.add_row(how)
+        code = Adw.ActionRow(title=lines.replace("\n", "  "), title_selectable=True,
+                             css_classes=["monospace"])
+        copy_btn = Gtk.Button(icon_name="edit-copy-symbolic", tooltip_text="Copy",
+                              valign=Gtk.Align.CENTER, css_classes=["flat"])
+        copy_btn.connect("clicked", lambda *_: self.get_clipboard().set(lines))
+        code.add_suffix(copy_btn)
+        row.add_row(code)
+        row.set_expanded(True)
+        return row
 
     # --- widgets -> daemon ---------------------------------------------------
 

@@ -43,8 +43,26 @@ ignore_devices = [
 ```
 
 Cmd+click keeps working: GNOME combines the Ctrl from Toshy's virtual
-keyboard with a click from any device. If a device is busy, MacFeel reports
-"busy: grabbed by another program" and retries every 5 s.
+keyboard with a click from any device.
+
+### Warn when another program has captured a mouse (instead of editing its config)
+
+Whoever grabs a device first wins. The installed daemon starts at boot,
+before Toshy, so it usually wins, but on a Bluetooth reconnect both race.
+Without the ignore entry it would therefore *sometimes* fail. MacFeel does
+not edit other tools' configs. Instead:
+
+- The daemon reports the mouse as "busy: captured by X". The kernel can't
+  say who holds a grab, so X is guessed from known remappers' virtual
+  devices (Toshy's "XWayKeyz (virtual) Keyboard", input-remapper, keyd,
+  kanata, …), falling back to "another program". It retries every 5 s and
+  takes over as soon as the device is free.
+- The tray switches to the warning icon, shows a menu line, and sends one
+  desktop notification per captured mouse.
+- The settings window shows the exact lines to add (with a Copy button)
+  and, for Toshy, an "Open Toshy config" button and the
+  `toshy-config-restart` hint. The `ignore_devices` list is inside Toshy's
+  `keymapper_api` slice, so it survives Toshy upgrades.
 
 ### Detecting other remappers' virtual devices: `/devices/virtual/input/`, not `/devices/virtual/`
 

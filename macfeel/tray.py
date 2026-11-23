@@ -37,6 +37,7 @@ class Tray:
         self.gnome_active = False
         self.restore_timer = None
         self.device_actions = []
+        self.notified = set()        # device ids we already sent a "captured" notification for
 
         self.actions = Gio.SimpleActionGroup()
         for name, callback in (("toggle", self.on_toggle), ("settings", lambda *_: open_settings()),
@@ -99,15 +100,30 @@ class Tray:
             icon, text = "macfeel-error-symbolic", "Active — no mouse found"
         else:
             icon, text = "macfeel-active-symbolic", f"Active — {grabbed} mouse" + ("s" if grabbed > 1 else "")
+        busy = [d for d in (st["devices"] if st else []) if d.get("busy_by")]
+        if busy and st["enabled"] and grabbed == 0:
+            icon, text = "macfeel-error-symbolic", f"{busy[0]['name']} is captured by {busy[0]['busy_by']}"
+        self.notify_captured(busy)
         self.indicator.set_icon(icon, text)
         self.indicator.set_tooltip(icon, "MacFeel", text)
         self.actions.lookup_action("toggle").set_enabled(st is not None)
 
         self.sync_gnome(bool(st and st["enabled"] and grabbed))
         stacking = self.gnome_active and not self.gnome.is_flat()
-        self.rebuild_menu(text, st, stacking)
+        self.rebuild_menu(text, st, stacking, busy)
 
-    def rebuild_menu(self, text, st, stacking):
+    def notify_captured(self, busy):
+        """One desktop notification per mouse when another program captures it."""
+        busy_ids = {d["id"] for d in busy}
+        for dev in busy:
+            if dev["id"] not in self.notified:
+                send_notification(
+                    f"MacFeel can't use your {dev['name']}",
+                    f"{dev['busy_by']} has captured it, so it moves without the Mac curve. "
+                    "Open MacFeel's settings to see how to fix this.")
+        self.notified = busy_ids   # forget mice that are no longer captured
+
+    def rebuild_menu(self, text, st, stacking, busy):
         for name in self.device_actions:
             self.actions.remove_action(name)
         self.device_actions = []
@@ -117,6 +133,9 @@ class Tray:
         top.append("Resume" if st and not st["enabled"] else "Pause", ACTION_PREFIX + "toggle")
         if stacking:
             top.append("⚠ GNOME acceleration is on (stacking) — Fix", ACTION_PREFIX + "fix-gnome")
+        for dev in busy:
+            top.append(f"⚠ {dev['name']} is captured by {dev['busy_by']} — how to fix…",
+                       ACTION_PREFIX + "settings")
 
         mice = Gio.Menu()
         for i, dev in enumerate(st["devices"] if st else []):
@@ -148,17 +167,30 @@ class Tray:
                 GLib.source_remove(self.restore_timer)
                 self.restore_timer = None
             if not self.gnome_active:
-                self.gnome.activate()
+                # Mark first: changing the setting fires "changed", which calls update() again.
                 self.gnome_active = True
+                self.gnome.activate()
         elif self.gnome_active and not self.restore_timer:
             self.restore_timer = GLib.timeout_add_seconds(RESTORE_DELAY, self._restore)
 
     def _restore(self):
         self.restore_timer = None
+        self.gnome_active = False   # first, for the same reason as in sync_gnome
         self.gnome.restore()
-        self.gnome_active = False
         self.update()
         return False
+
+
+def send_notification(summary, body):
+    """Desktop notification via the freedesktop D-Bus API (no toolkit needed)."""
+    try:
+        Gio.bus_get_sync(Gio.BusType.SESSION, None).call(
+            "org.freedesktop.Notifications", "/org/freedesktop/Notifications",
+            "org.freedesktop.Notifications", "Notify",
+            GLib.Variant("(susssasa{sv}i)", ("MacFeel", 0, "input-mouse", summary, body, [], {}, -1)),
+            None, Gio.DBusCallFlags.NONE, -1, None, None, None)
+    except GLib.Error:
+        pass   # no notification daemon: the menu still shows the warning
 
 
 def open_settings():

@@ -109,6 +109,10 @@ class Daemon:
 
     def _set_status(self, path, facts, verdict, reason):
         old = self.status.get(path)
+        busy_by = None
+        if reason.startswith("busy"):
+            busy_by = devices.guess_grabber() or "another program"
+            reason = f"busy: captured by {busy_by}"
         entry = {
             "path": path,
             "id": devices.stable_id(facts) if facts else None,
@@ -117,7 +121,8 @@ class Daemon:
             "reason": reason,
             "combined": devices.is_combined(facts) if facts else False,
             "dpi": self.pipelines[path].frame.settings.dpi if path in self.pipelines else None,
-            "retry_at": time.monotonic() + RETRY_BUSY if reason.startswith("busy") else None,
+            "busy_by": busy_by,
+            "retry_at": time.monotonic() + RETRY_BUSY if busy_by else None,
         }
         self.status[path] = entry
         self.status_dirty = True

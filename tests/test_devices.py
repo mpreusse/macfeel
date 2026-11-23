@@ -61,5 +61,17 @@ class ClassifyTest(unittest.TestCase):
         self.assertTrue(d.stable_id(facts()).endswith("usb-0000:00:14.0-2/input0"))
 
 
+class GrabberTest(unittest.TestCase):
+    def test_recognises_toshy_by_its_virtual_device(self):
+        import os, tempfile
+        with tempfile.TemporaryDirectory() as sysfs:
+            for i, name in enumerate(["AT Translated Set 2 keyboard", "XWayKeyz (virtual) Keyboard"]):
+                os.makedirs(os.path.join(sysfs, f"input{i}"))
+                with open(os.path.join(sysfs, f"input{i}", "name"), "w") as f:
+                    f.write(name + "\n")
+            self.assertEqual(d.guess_grabber(sysfs), "Toshy")
+        self.assertIsNone(d.guess_grabber("/nonexistent"))
+
+
 if __name__ == "__main__":
     unittest.main()
