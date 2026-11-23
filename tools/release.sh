@@ -41,7 +41,9 @@ NOTES=$(awk '/^## Unreleased/ {on=1; next} /^## / {on=0} on' CHANGELOG.md | sed 
 python3 -m unittest discover -s tests -t . >/dev/null 2>&1 || die "Tests fail; run: make test"
 
 # 5. Confirm.
-echo "Release $LAST -> v$NEXT ($BUMP). Changes since $LAST:"
+echo "Release $LAST -> v$NEXT ($BUMP bump; for another: make release BUMP=patch|minor|major)"
+echo "  patch = fixes only, minor = new features, major = incompatible changes"
+echo "Changes since $LAST:"
 git log --oneline "$LAST"..HEAD | sed 's/^/  /'
 echo "Changelog:"
 echo "$NOTES" | sed 's/^/  /'
