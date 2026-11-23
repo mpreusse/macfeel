@@ -170,15 +170,23 @@ restoring GNOME's acceleration, the mouse then feels like stock Ubuntu.
 
 ## User interface
 
-### Tray: libayatana-appindicator-glib (no GUI toolkit); settings: GTK4 (spec §6.1 said: GTK3 + AppIndicator)
+### Tray: our own StatusNotifierItem + dbusmenu over Gio (spec §6.1 said: GTK3 + AppIndicator)
 
-The tray uses `libayatana-appindicator-glib`
-(`gir1.2-ayatanaappindicatorglib-2.0`): a GLib-only reimplementation. The
-menu is a `Gio.Menu` with `Gio` actions (prefix `indicator.`), and Ubuntu's
-AppIndicator extension draws it. There is no GTK3 anywhere, so GTK4 +
-libadwaita (settings window) is the only toolkit. This replaces
-`gir1.2-gtk-3.0` and `gir1.2-ayatanaappindicator3-0.1`, the latter of which
-prints a deprecation warning pointing to the glib version.
+`macfeel/sni.py` publishes the icon (`org.kde.StatusNotifierItem`) and the
+menu (`com.canonical.dbusmenu`) directly over D-Bus with `Gio`, in about
+200 lines with no toolkit and no extra package. GNOME's AppIndicator
+extension, KDE and other panels draw it. Interfaces follow the extension's
+own XML in
+`/usr/share/gnome-shell/extensions/ubuntu-appindicators@ubuntu.com/interfaces-xml/`.
+
+Ruled out:
+
+- **GTK3 + AyatanaAppIndicator3** works (Toshy uses it), but brings back
+  GTK3 and prints a deprecation warning.
+- **libayatana-appindicator-glib**, its suggested replacement, exports the
+  menu as `org.gtk.Menus`. Ubuntu's AppIndicator extension only reads
+  `com.canonical.dbusmenu`, so the icon showed but clicking it did nothing
+  (verified by introspecting both sides).
 
 The curve graph draws with GTK4's snapshot/path API (`Gsk.PathBuilder`),
 not cairo, so `python3-gi-cairo` isn't needed.
