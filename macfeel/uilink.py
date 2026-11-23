@@ -81,6 +81,15 @@ def package_parent():
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def calibration_page():
+    """tools/calibrate.html in the source tree, or the installed copy."""
+    for candidate in (os.path.join(package_parent(), "tools", "calibrate.html"),
+                      "/usr/share/macfeel/calibrate.html"):
+        if os.path.exists(candidate):
+            return candidate
+    return None
+
+
 def data_dir():
     """Installed data (icons) or the source tree's data/ folder."""
     for candidate in (os.path.join(package_parent(), "data"), "/usr/share/macfeel"):

@@ -1,14 +1,14 @@
 #!/bin/bash
 # MacFeel installer: Mac-like mouse acceleration for Ubuntu (GNOME).
 #
-#   From GitHub:      curl -fsSL https://raw.githubusercontent.com/OWNER/macfeel/main/install.sh | bash
+#   From GitHub:      curl -fsSL https://raw.githubusercontent.com/mpreusse/macfeel/main/install.sh | bash
 #   From a checkout:  ./install.sh          (builds the package from this source tree)
 #
 # Run as your normal user. sudo is used once, to install the package with apt.
 # Safe to re-run: it updates to the newest version.
 set -euo pipefail
 
-REPO="${MACFEEL_REPO:-OWNER/macfeel}"     # GitHub "owner/name" to download releases from
+REPO="${MACFEEL_REPO:-mpreusse/macfeel}"     # GitHub "owner/name" to download releases from
 
 say()  { printf '\033[1m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m==>\033[0m %s\n' "$*" >&2; }

@@ -14,7 +14,13 @@ import sys
 
 import gi
 
-from gi.repository import Gio, GLib, GLibUnix  # noqa: E402
+from gi.repository import Gio, GLib  # noqa: E402
+
+try:                                    # GLib >= 2.80
+    from gi.repository import GLibUnix  # noqa: E402
+    unix_signal_add = GLibUnix.signal_add
+except ImportError:
+    unix_signal_add = GLib.unix_signal_add
 
 from .gnome import GnomeMouse  # noqa: E402
 from .sni import MenuItem, StatusNotifierItem  # noqa: E402
@@ -37,7 +43,7 @@ class Tray:
         self.notified = set()        # device ids we already sent a "captured" notification for
         self.indicator = StatusNotifierItem("macfeel", os.path.join(data_dir(), "icons"), "MacFeel")
 
-        self.gnome.settings.connect("changed::accel-profile", lambda *_: self.update())
+        self.gnome.on_profile_changed(self.update)
         self.link = DaemonLink(["status"], self.on_message, self.on_connected)
         self.update()
         self.link.start()
@@ -172,7 +178,7 @@ def main():
     loop = GLib.MainLoop()
     Tray(loop)
     for sig in (signal.SIGINT, signal.SIGTERM):
-        GLibUnix.signal_add(GLib.PRIORITY_DEFAULT, sig, loop.quit)
+        unix_signal_add(GLib.PRIORITY_DEFAULT, sig, loop.quit)
     loop.run()
 
 

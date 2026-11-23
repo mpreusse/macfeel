@@ -17,6 +17,7 @@ install -D -m 644 data/io.github.macfeel.Settings.desktop "$STAGE/usr/share/appl
 install -D -m 644 data/icons/io.github.macfeel.Settings.svg "$STAGE/usr/share/icons/hicolor/scalable/apps/io.github.macfeel.Settings.svg"
 install -d "$STAGE/usr/share/macfeel/icons"
 install -m 644 data/icons/macfeel-*-symbolic.svg "$STAGE/usr/share/macfeel/icons/"
+install -m 644 tools/calibrate.html "$STAGE/usr/share/macfeel/calibrate.html"
 install -d "$STAGE/usr/share/doc/macfeel"
 install -m 644 README.md docs/*.md "$STAGE/usr/share/doc/macfeel/"
 

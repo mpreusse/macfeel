@@ -1,0 +1,35 @@
+name: Release
+
+# Push a tag like v0.2.0 (matching macfeel/__init__.py) to publish a release.
+# The installer downloads releases/latest/download/macfeel_all.deb.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ubuntu packages the code imports
+        run: sudo apt-get update && sudo apt-get install -y python3-pyudev python3-evdev
+      - name: Tag must match the package version
+        run: |
+          VERSION=$(/usr/bin/python3 -c 'import macfeel; print(macfeel.__version__)')
+          test "v$VERSION" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME != v$VERSION"; exit 1; }
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+      - name: Unit tests
+        run: /usr/bin/python3 -m unittest discover -s tests -t .
+      - name: Build the .deb
+        run: tools/build-deb.sh
+      - name: Release notes from CHANGELOG.md
+        run: awk -v v="$VERSION" '$0 ~ "^## " v {on=1; next} /^## / {on=0} on' CHANGELOG.md > notes.md
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "MacFeel $VERSION" --notes-file notes.md \
+            "dist/macfeel_${VERSION}_all.deb" dist/macfeel_all.deb

@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MacFeel calibration</title>
+<style>
+  :root { --bg:#fafafa; --fg:#1e1e1e; --muted:#6b6b6b; --card:#fff; --line:#e3e3e3; --accent:#3584e4; --warn:#c64600; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#1d1d20; --fg:#eee; --muted:#a0a0a8; --card:#2a2a2e; --line:#3a3a40; --accent:#78aeed; --warn:#ffa348; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:24px 16px 64px; background:var(--bg); color:var(--fg);
+         font:15px/1.5 system-ui, -apple-system, "Cantarell", sans-serif; }
+  main { max-width:760px; margin:0 auto; }
+  h1 { font-size:26px; margin:0 0 4px; } h2 { font-size:18px; margin:32px 0 8px; }
+  p, li { color:var(--fg); } .muted { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin:12px 0; }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; font-size:13px; }
+  button { font:inherit; padding:6px 14px; border-radius:8px; border:1px solid var(--line);
+           background:var(--card); color:var(--fg); cursor:pointer; }
+  button.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  textarea { width:100%; min-height:110px; font:13px/1.4 ui-monospace, monospace; padding:8px;
+             border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--fg); }
+  #capture { position:fixed; inset:0; display:none; place-items:center; text-align:center;
+             background:color-mix(in srgb, var(--bg) 92%, transparent); font-size:20px; padding:24px; }
+  #capture b { font-size:28px; display:block; margin-bottom:8px; }
+  .big { font-size:22px; font-weight:600; } .warn { color:var(--warn); }
+  code { font:13px ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<main>
+  <h1>MacFeel calibration</h1>
+  <p class="muted">Measures how far the cursor moves when the mouse moves a known distance, at three speeds.
+  Do it on your Mac and on Ubuntu with the same mouse, then compare. Nothing leaves this page.</p>
+
+  <div class="card">
+    <ol>
+      <li>Put a ruler on the desk. Use the same mouse (and the same mouse DPI setting) on both machines.</li>
+      <li>For each speed, click <b>Measure</b>. The pointer is captured (it disappears).</li>
+      <li>Hold the mouse with its edge at the ruler's 0 mark, move it straight right to the
+          <b id="dist-label">10 cm</b> mark at the requested speed, then <b>click</b>.</li>
+      <li>Do each speed 2–3 times; the table averages them.</li>
+    </ol>
+    <label>Distance: <select id="distance">
+      <option value="10">10 cm</option><option value="15">15 cm</option><option value="20">20 cm</option>
+      <option value="10.16">4 inches</option>
+    </select></label>
+  </div>
+
+  <table class="card" id="results">
+    <thead><tr><th>Speed</th><th>How</th><th>Tries</th><th>Cursor travel</th><th>Hand speed</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <p><button class="primary" id="copy">Copy results</button>
+     <button id="reset">Clear</button> <span id="copied" class="muted"></span></p>
+
+  <h2>Compare with the other machine</h2>
+  <p class="muted">Paste the results copied on the other computer. The page works out which one is the Mac.</p>
+  <textarea id="other" placeholder='{"platform": "macOS", ...}'></textarea>
+  <div class="card" id="comparison"><span class="muted">No comparison yet.</span></div>
+
+  <h2>This machine</h2>
+  <div class="card muted" id="sysinfo"></div>
+</main>
+
+<div id="capture"><div><b id="cap-title"></b><span id="cap-text"></span><br>
+  <span class="muted">Click when you reach the mark · Esc cancels</span></div></div>
+
+<script>
+"use strict";
+const SPEEDS = [
+  { key: "slow",   label: "Slow",   how: "about 3 seconds, precise" },
+  { key: "medium", label: "Medium", how: "about 1 second, normal" },
+  { key: "fast",   label: "Fast",   how: "a quick flick, ~0.3 s" },
+];
+const store = (() => { try { return window.localStorage; } catch (e) { return null; } })();
+let tries = load();
+let active = null;   // { key, dx, dy, t0, t1 }
+
+function load() {
+  try { return JSON.parse(store?.getItem("macfeel-calibration") || "{}"); } catch (e) { return {}; }
+}
+function save() { try { store?.setItem("macfeel-calibration", JSON.stringify(tries)); } catch (e) {} }
+const distance = () => parseFloat(document.getElementById("distance").value);
+const platform = () => /Mac/i.test(navigator.platform || navigator.userAgent) ? "macOS"
+                     : /Linux/i.test(navigator.platform || navigator.userAgent) ? "Linux" : (navigator.platform || "unknown");
+
+function summary(key) {
+  const list = tries[key] || [];
+  if (!list.length) return null;
+  const avg = f => list.reduce((s, t) => s + f(t), 0) / list.length;
+  return { px_per_cm: avg(t => t.px / t.cm), cm_per_s: avg(t => t.cm / t.s), n: list.length };
+}
+
+function render() {
+  const body = document.querySelector("#results tbody");
+  body.innerHTML = "";
+  for (const sp of SPEEDS) {
+    const s = summary(sp.key);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td><b>${sp.label}</b></td><td class="muted">${sp.how}</td><td>${s ? s.n : 0}</td>
+      <td>${s ? `<span class="big">${s.px_per_cm.toFixed(0)}</span> px/cm` : "–"}</td>
+      <td>${s ? `${s.cm_per_s.toFixed(1)} cm/s` : "–"}</td>
+      <td><button class="primary">Measure</button></td>`;
+    tr.querySelector("button").onclick = () => start(sp);
+    body.appendChild(tr);
+  }
+  document.getElementById("dist-label").textContent = document.getElementById("distance").selectedOptions[0].text;
+  document.getElementById("sysinfo").innerHTML =
+    `Platform: <b>${platform()}</b> · Screen: ${screen.width}×${screen.height} (CSS px) · ` +
+    `Device pixel ratio: ${devicePixelRatio} · Page zoom must be 100 %.<br>` +
+    `Cursor travel is measured in CSS pixels, which equal points on macOS and logical pixels on GNOME.`;
+  compare();
+}
+
+function start(sp) {
+  active = { key: sp.key, dx: 0, dy: 0, t0: null, t1: null };
+  document.getElementById("cap-title").textContent = `${sp.label}: move ${document.getElementById("distance").selectedOptions[0].text}`;
+  document.getElementById("cap-text").textContent = sp.how;
+  const cap = document.getElementById("capture");
+  cap.style.display = "grid";
+  cap.requestPointerLock();
+}
+
+document.addEventListener("pointerlockchange", () => {
+  if (!document.pointerLockElement && active) {     // Esc or lost lock: cancel
+    active = null;
+    document.getElementById("capture").style.display = "none";
+  }
+});
+document.addEventListener("mousemove", e => {
+  if (!active || !document.pointerLockElement) return;
+  if (e.movementX === 0 && e.movementY === 0) return;
+  const now = performance.now();
+  if (active.t0 === null) active.t0 = now;
+  active.t1 = now;
+  active.dx += e.movementX;
+  active.dy += e.movementY;
+});
+document.addEventListener("click", () => {
+  if (!active || !document.pointerLockElement) return;
+  const a = active;
+  active = null;
+  document.exitPointerLock();
+  document.getElementById("capture").style.display = "none";
+  const px = Math.abs(a.dx);          // net horizontal travel: robust against jitter
+  const s = (a.t1 - a.t0) / 1000;
+  if (a.t0 === null || px < 20 || s <= 0) return;
+  (tries[a.key] = tries[a.key] || []).push({ px, cm: distance(), s });
+  save();
+  render();
+});
+
+function results() {
+  const out = { platform: platform(), screen: [screen.width, screen.height], dpr: devicePixelRatio };
+  for (const sp of SPEEDS) out[sp.key] = summary(sp.key);
+  return out;
+}
+document.getElementById("copy").onclick = async () => {
+  const text = JSON.stringify(results(), null, 1);
+  try { await navigator.clipboard.writeText(text); document.getElementById("copied").textContent = "Copied."; }
+  catch (e) { document.getElementById("other").value = text; document.getElementById("copied").textContent = "Couldn't copy; the results are in the box below."; }
+};
+document.getElementById("reset").onclick = () => { tries = {}; save(); render(); };
+document.getElementById("distance").onchange = render;
+document.getElementById("other").oninput = compare;
+
+// The Mac curve differs between slider steps mostly at high speed, so: slow and
+// medium tell us the overall speed factor, fast tells us whether the tracking
+// step (acceleration) matches.
+function compare() {
+  const box = document.getElementById("comparison");
+  let other;
+  try { other = JSON.parse(document.getElementById("other").value); } catch (e) { other = null; }
+  if (!other) { box.innerHTML = '<span class="muted">No comparison yet.</span>'; return; }
+  const mine = results();
+  const [mac, linux] = other.platform === "macOS" ? [other, mine] : [mine, other];
+  if (mac.platform !== "macOS") { box.innerHTML = '<span class="warn">Neither result comes from a Mac.</span>'; return; }
+  const ratio = k => (mac[k] && linux[k]) ? mac[k].px_per_cm / linux[k].px_per_cm : null;
+  const rows = SPEEDS.map(sp => {
+    const r = ratio(sp.key);
+    return `<tr><td>${sp.label}</td><td>${mac[sp.key] ? mac[sp.key].px_per_cm.toFixed(0) : "–"}</td>
+      <td>${linux[sp.key] ? linux[sp.key].px_per_cm.toFixed(0) : "–"}</td>
+      <td>${r ? (r * 100).toFixed(0) + " %" : "–"}</td></tr>`;
+  }).join("");
+  let advice = "Measure all three speeds on both machines for a recommendation.";
+  const rs = ratio("slow"), rm = ratio("medium"), rf = ratio("fast");
+  if (rs && rm && rf) {
+    const overall = Math.sqrt(rs * rm);
+    const fastDiff = rf / overall;
+    advice = `Set <b>Overall speed</b> to about <span class="big">${Math.round(overall * 100 / 5) * 5} %</span>
+      of its current value on Ubuntu (it scales the whole curve).`;
+    if (fastDiff > 1.15) advice += ` Fast movements are still ${(fastDiff * 100 - 100).toFixed(0)} % shorter than on the Mac:
+      try one <b>Tracking speed</b> step faster.`;
+    else if (fastDiff < 0.87) advice += ` Fast movements are still ${(100 - fastDiff * 100).toFixed(0)} % longer than on the Mac:
+      try one <b>Tracking speed</b> step slower.`;
+    else advice += " Fast movements then match within 15 %: the tracking step is right.";
+    advice += ` <span class="muted">Compare hand speeds too: they should be similar (Mac
+      ${mac.medium.cm_per_s.toFixed(0)} vs Ubuntu ${linux.medium.cm_per_s.toFixed(0)} cm/s at medium).</span>`;
+  }
+  box.innerHTML = `<table><thead><tr><th>Speed</th><th>Mac px/cm</th><th>Ubuntu px/cm</th><th>Mac ÷ Ubuntu</th></tr></thead>
+    <tbody>${rows}</tbody></table><p>${advice}</p>`;
+}
+render();
+</script>
+</body>
+</html>

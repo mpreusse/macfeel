@@ -1,6 +1,6 @@
 # Design decisions
 
-`specs.md` is the original draft. This file records where we deviated from
+[`specs.md`](specs.md) is the original draft. This file records where we deviated from
 it and why, and answers the spec's open questions (§15). Newest first within
 each section.
 

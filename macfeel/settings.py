@@ -16,13 +16,13 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 gi.require_version("Gsk", "4.0")
 gi.require_version("Graphene", "1.0")
-from gi.repository import Adw, Gio, GLib, Graphene, Gsk, Gtk  # noqa: E402
+from gi.repository import Adw, Gdk, Gio, GLib, Graphene, Gsk, Gtk  # noqa: E402
 
 from . import config as cfg  # noqa: E402
 from . import curve  # noqa: E402
 from .devices import VIRTUAL_SUFFIX  # noqa: E402
 from .gnome import GnomeMouse  # noqa: E402
-from .uilink import DaemonLink  # noqa: E402
+from .uilink import DaemonLink, calibration_page  # noqa: E402
 
 APP_ID = "io.github.macfeel.Settings"
 PRESETS = list(curve.PRESETS)                      # keys, in display order
@@ -43,6 +43,16 @@ def step_label(index):
         return "Mac default"
     word = "slower" if diff < 0 else "faster"
     return f"{abs(diff)} step{'s' if abs(diff) > 1 else ''} {word}"
+
+
+def accent_color():
+    """The system accent colour (libadwaita >= 1.6), else GNOME's default blue."""
+    manager = Adw.StyleManager.get_default()
+    if hasattr(manager, "get_accent_color_rgba"):
+        return manager.get_accent_color_rgba()
+    color = Gdk.RGBA()
+    color.parse("#3584e4")
+    return color
 
 
 def rgba(color, alpha):
@@ -91,7 +101,7 @@ class CurveGraph(Gtk.Widget):
     def do_snapshot(self, snapshot):
         width, height = self.get_width(), self.get_height()
         fg = self.get_color()
-        accent = Adw.StyleManager.get_default().get_accent_color_rgba()
+        accent = accent_color()
         left, right, top, bottom = 36, 12, 10, 26
         w, h = width - left - right, height - top - bottom
         if w <= 0 or h <= 0:
@@ -174,7 +184,7 @@ class Window(Adw.ApplicationWindow):
         self.set_content(toolbar)
 
         self.build()
-        self.gnome.settings.connect("changed::accel-profile", lambda *_: self.update_banner())
+        self.gnome.on_profile_changed(self.update_banner)
         self.link = DaemonLink(["status", "live"], self.on_message, self.on_connected)
         self.on_connected(False)
         self.link.start()
@@ -235,6 +245,19 @@ class Window(Adw.ApplicationWindow):
         for r in (self.accel_row, self.algo_row, self.rate_row, self.rate_info):
             advanced.add_row(r)
         pointer.add(advanced)
+
+        page_path = calibration_page()
+        if page_path:
+            calibrate = Adw.ActionRow(
+                title="Match your Mac",
+                subtitle="A measuring page for your browser: run it on the Mac and here, "
+                         "and it tells you which Overall speed and Tracking speed to use",
+                subtitle_lines=0)
+            button = Gtk.Button(label="Open", valign=Gtk.Align.CENTER)
+            button.connect("clicked", lambda *_: Gio.AppInfo.launch_default_for_uri(
+                "file://" + page_path, None))
+            calibrate.add_suffix(button)
+            pointer.add(calibrate)
         page.add(pointer)
 
         scrolling = Adw.PreferencesGroup(title="Scrolling",

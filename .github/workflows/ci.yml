@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ubuntu packages the code imports
+        run: sudo apt-get update && sudo apt-get install -y python3-pyudev python3-evdev
+      - name: Unit tests (curve checked against measurements of real Macs)
+        run: /usr/bin/python3 -m unittest discover -s tests -t . -v
+      - name: Shell scripts parse
+        run: |
+          for f in install.sh packaging/bin/* packaging/debian/postinst packaging/debian/prerm \
+                   packaging/debian/postrm tools/build-deb.sh tools/mac-probe.sh macfeel.sh; do
+            bash -n "$f"
+          done
+      - name: Build the .deb
+        run: tools/build-deb.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macfeel-deb
+          path: dist/macfeel_*_all.deb

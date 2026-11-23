@@ -1,142 +1,199 @@
 # MacFeel
 
-Makes an external mouse on Ubuntu (GNOME, Wayland or X11) move like it does
-on macOS, using a port of Apple's own pointer-acceleration algorithm.
+**Make your mouse on Ubuntu feel like it does on a Mac.**
 
-**Status:** early development, installable.
+Coming from macOS, the mouse on Linux feels off: slow, precise movements
+are too fast, fast flicks don't go far enough. MacFeel fixes that with a
+port of Apple's own pointer-acceleration algorithm, checked against
+measurements of a real Mac. Install it with one command, and your mouse
+moves the way you're used to. A top-bar icon shows it's working, and a
+settings window has the Mac's Tracking-speed slider.
+
+> [!NOTE]
+> **This project is completely vibe coded.** All code, tests, packaging and
+> docs were written by an AI coding assistant (Claude Code). The author
+> directed the work and tested the result, but didn't write the code.
+>
+> **It is also tested and used every day.** The unit tests compare the
+> acceleration against cursor movements measured on a real Mac (macOS 15)
+> at all ten Tracking-speed steps, and CI runs them on every change. The
+> author uses MacFeel daily on **Ubuntu 26.10 (GNOME 51, Wayland)** with a
+> **Logitech MX Master 3 over Bluetooth** and **Toshy**. Other mice,
+> distributions and desktops should work but are less tested; issues and
+> reports are welcome.
+>
+> It installs a system service, so read what it does before installing.
+> The code is small and readable, and everything is documented in
+> [docs/](docs/).
 
 ## Install
 
 ```bash
-./install.sh            # from this checkout: builds the .deb and installs it
+curl -fsSL https://raw.githubusercontent.com/mpreusse/macfeel/main/install.sh | bash
 ```
-Once published on GitHub, the same works without a checkout:
-`curl -fsSL https://raw.githubusercontent.com/OWNER/macfeel/main/install.sh | bash`.
 
-This installs a system service (`macfeeld`, running sandboxed as its own
-`macfeel` user with the `input` group; it only ever opens mice, see
-[decisions.md](docs/decisions.md#device-access-via-the-input-group-not-per-user-acls-spec-62-said-acls-only)),
-a tray icon that starts at login, and the "MacFeel" settings app. No reboot or re-login is needed.
-Re-run it to update.
+Run it as your normal user; it asks for `sudo` once to install the package
+with `apt`. No reboot or re-login is needed. Run the same command again to
+update.
 
-**Uninstall:** `macfeel-uninstall`. It restores GNOME's mouse settings and
-removes everything (service, udev rule, system user, config).
+**Requirements:** Ubuntu 24.04 or newer (or a Debian-based system with
+GTK ≥ 4.14 and libadwaita ≥ 1.4), GNOME on Wayland or X11. Only 26.10 is
+tested so far.
 
-If you use Toshy, see
-[decisions.md](docs/decisions.md#toshy-must-ignore-the-physical-mouse); the
-settings window shows the exact lines to add.
+**What gets installed:**
 
-- [docs/decisions.md](docs/decisions.md): where and why we deviate from the
-  original [specs.md](specs.md); answers to its open questions.
-- [docs/mac-curve.md](docs/mac-curve.md): Apple's algorithm, sources and
-  constants.
+- `macfeeld`, a small system service. It runs as its own `macfeel` user
+  (not root) with access to input devices, sandboxed by systemd: no network,
+  no writable files outside its own settings, no capabilities.
+- A tray icon that starts when you log in.
+- The **MacFeel** app (settings window).
+- A udev rule that lets the `input` group use `/dev/uinput`, needed to create
+  the virtual mouse. Toshy's own rule does the same.
+
+**Uninstall:**
+
+```bash
+macfeel-uninstall
+```
+
+This restores GNOME's mouse settings and removes everything: service, udev
+rule, system user and settings.
+
+## Using it
+
+After installing, your mouse moves like on a Mac. The **top-bar icon**
+shows the state (active, paused, or a problem) and lets you pause MacFeel.
+Paused means stock Ubuntu behaviour.
+
+The **MacFeel** app (also under *Settings…* in the tray menu) has:
+
+- **Tracking speed**: the same 10 steps as the Mac's slider, labelled
+  *Mac default*, *1 step slower* and so on. Like on the Mac, a lower step
+  mainly reduces how much fast movements are amplified; slow, precise
+  movement barely changes.
+- **Overall speed**: makes everything faster or slower without changing
+  the curve's shape. Use it if your screen is much larger or smaller than
+  your Mac's.
+- **A live graph** of the acceleration curve, with a dot that follows your
+  mouse, and the Mac default as a dashed line for comparison.
+- **Scrolling**: faster wheel spins scroll further; slow notches stay 1:1.
+- **Mice**: turn MacFeel on or off per mouse.
+- **A test area** to move and scroll in.
+
+While MacFeel is active, GNOME's own mouse acceleration is switched off so
+the two don't stack. Your original setting is restored when you pause or
+uninstall.
+
+### Matching your Mac exactly
+
+1. **Tracking speed:** on your Mac, run
+   `defaults read -g com.apple.mouse.scaling` and pick the same value in
+   MacFeel (the default is 0.6875, the fourth step).
+2. **Overall speed:** the Mac and Ubuntu may use different screen sizes and
+   scaling. Open *Match your Mac* in the settings window. It is a page you
+   run in a browser on both machines: move the mouse 10 cm along a ruler at
+   three speeds, paste one result into the other, and it tells you which
+   Overall speed (and, if needed, which Tracking speed) to use. The page is
+   also at [tools/calibrate.html](tools/calibrate.html).
+3. **Mouse DPI:** use the same DPI on both machines. macOS doesn't
+   compensate for DPI either, so a higher DPI makes the pointer faster
+   there too.
+
+[tools/mac-probe.sh](tools/mac-probe.sh) is a read-only script that prints
+the acceleration settings macOS really uses for your mouse, in case you
+want to dig deeper.
+
+## Works with Toshy and Solaar
+
+**[Toshy](https://github.com/RedBearAK/toshy)** (Mac keyboard shortcuts)
+and MacFeel work together, and Cmd+click keeps working. One catch: some
+mice (e.g. the MX Master 3 over Bluetooth) declare a keyboard as well, so
+Toshy grabs them too, and only one program can hold a device. MacFeel
+detects this, shows a warning, and tells you the two lines to add to
+Toshy's `ignore_devices`, with a Copy button and an *Open Toshy config*
+button. Afterwards, run `toshy-config-restart`.
+
+**[Solaar](https://github.com/pwr-Solaar/Solaar)** keeps working for DPI,
+SmartShift, hi-res scrolling and buttons; it talks to Logitech mice over a
+different channel. Changing DPI in Solaar changes pointer speed, just like
+on a Mac.
+
+## Privacy and safety
+
+- **No network access, no telemetry, no update checks.** The service is
+  blocked from the network by systemd.
+- **Only mice are opened.** The service never opens keyboards or virtual
+  devices. Key events from mice that declare a keyboard are passed through
+  untouched.
+- **Nothing about your movements is logged or stored.** The live graph
+  data exists only in memory and only goes to the settings window of the
+  user who installed MacFeel.
+- **Your mouse can't get stuck.** If the service stops for any reason, even
+  `kill -9`, the kernel instantly hands the mouse back to GNOME. A watchdog
+  releases all mice if the service ever hangs.
 
 ## How it works
 
 ```
-mouse ──evdev (grabbed)──▶ macfeeld ──uinput──▶ "<name> (MacFeel)" ──▶ libinput / GNOME (flat profile)
-                              │ Mac curve on motion, scroll acceleration on wheels,
-                              │ everything else (buttons, keys) passed through unchanged
-                              └─ control socket ◀──▶ tray / settings (coming)
+mouse ──▶ macfeeld (applies the Mac curve) ──▶ virtual mouse ──▶ GNOME
 ```
 
-If the daemon stops for any reason, including `kill -9`, the kernel
-releases the grab and the mouse works normally again immediately.
+The service takes exclusive control of each real mouse and creates a
+virtual twin named "*\<mouse\> (MacFeel)*". For every movement report, it
+does what macOS does: it looks at how many counts the mouse moved in that
+report and multiplies the movement by Apple's gain for that speed. Buttons
+and everything else pass through unchanged. Because this happens below the
+desktop, it works on Wayland and X11.
 
-| Module | Purpose |
-|---|---|
-| `macfeel/curve.py` | Apple's table and parametric algorithms (pure math) |
-| `macfeel/scroll.py` | Scroll acceleration, hi-res/low-res consistent (pure) |
-| `macfeel/pipeline.py` | Per-frame processing (pure) and the device/uinput wrapper |
-| `macfeel/devices.py` | Which devices to grab (pure rules) and gathering facts from udev |
-| `macfeel/daemon.py` | Main loop: discovery, hotplug, config reload, watchdog |
-| `macfeel/control.py`, `ipc.py` | Control socket (server and client) |
-| `macfeel/tray.py`, `sni.py` | Tray icon and menu, published over D-Bus (no toolkit) |
-| `macfeel/settings.py` | Settings window (GTK4 + libadwaita) |
-| `macfeel/__main__.py`, `macfeel.sh` | One-command launcher for development |
-| `macfeel/gnome.py`, `uilink.py` | GNOME mouse settings handling; UI connection to the daemon |
-| `tools/record.py` | Record a mouse's raw events for replay tests |
-| `tools/mac-probe.sh` | Read-only: dump macOS's live acceleration settings |
-| `tools/build-deb.sh`, `packaging/` | Build `dist/macfeel_<version>_all.deb` |
-| `install.sh`, `uninstall.sh` | Install / remove (uninstall is also installed as `macfeel-uninstall`) |
-| `data/` | systemd unit, udev rule, desktop entries, icons |
+The curve is a port of Apple's open-source HID code. Current macOS uses a
+table-based algorithm, and MacFeel's port reproduces cursor movement
+measured on a real Mac running macOS 15. The full story, sources and
+numbers are in [docs/mac-curve.md](docs/mac-curve.md).
 
-## Running it from the source tree (development)
+## FAQ
 
-If MacFeel is installed, stop the service first: `sudo systemctl stop macfeeld`.
+**Does it work for the touchpad?** No, only for mice. A touchpad is not a
+"relative" device like a mouse. It reports finger positions, and libinput
+turns them into pointer motion, taps, two-finger scrolling, gestures and
+palm rejection. MacFeel works by taking over a device's raw events, so
+doing that for a touchpad would mean reimplementing all of that. macOS also
+uses a different curve for trackpads. GNOME's own touchpad settings stay in
+charge.
 
-Requirements:
-```bash
-sudo apt install python3-evdev python3-pyudev python3-gi gir1.2-gtk-4.0 gir1.2-adw-1
-```
-plus membership in the `input` group (for read access to
-`/dev/input/event*` and `/dev/uinput`).
+**Gaming mice with high polling rates?** They work, but feel slower,
+exactly as they would on a Mac: macOS computes speed per report, so a mouse
+that reports 1000 times per second gets less acceleration. *Advanced →
+Normalize report rate* compensates.
 
-1. **If you use Toshy,** make it ignore your mouse; see
-   [decisions.md](docs/decisions.md#toshy-must-ignore-the-physical-mouse).
-   For the MX Master 3 over Bluetooth, add to `ignore_devices` in
-   `~/.config/toshy/toshy_config.py`:
-   `'Logitech MX Master 3 for Mac'` and
-   `'Logitech MX Master 3 for Mac (MacFeel)'`. Then restart Toshy.
-2. **Switch GNOME's own acceleration off,** so it doesn't stack on top. Note
-   your current values first so you can restore them; the tray will automate
-   this later.
-   ```bash
-   gsettings get org.gnome.desktop.peripherals.mouse accel-profile   # note it
-   gsettings get org.gnome.desktop.peripherals.mouse speed           # note it
-   gsettings set org.gnome.desktop.peripherals.mouse accel-profile flat
-   gsettings set org.gnome.desktop.peripherals.mouse speed 0
-   ```
-3. **Start everything with one command:**
-   ```bash
-   ./macfeel.sh                   # daemon + tray + settings window; Ctrl+C stops all
-   ./macfeel.sh --no-settings     # without opening the settings window
-   ```
-   This works from any terminal, including VS Code's. Settings are stored in
-   `macfeel-dev.json` in the project folder (only values that differ from
-   the defaults). The parts can also run separately: `python3 -m
-   macfeel.daemon`, `macfeel.tray`, `macfeel.settings`.
+**Other desktops (KDE, …)?** The service doesn't depend on the desktop.
+The tray icon uses the standard StatusNotifierItem protocol. Switching off
+the desktop's own acceleration is only automated for GNOME; elsewhere, set
+the mouse acceleration profile to "flat" yourself.
 
-## Settings
+**The tray says "no mouse found".** Check `journalctl -u macfeeld -n 30`.
+If your mouse is listed as "captured by …", another program holds it (see
+Toshy above).
 
-| Key | Default | Meaning |
-|---|---|---|
-| `enabled` | `true` | `false` = pass everything through unchanged |
-| `pointer.preset` | `"mac"` | `"mac"`, `"mac-light"` (60 % acceleration), `"linear"` (no acceleration, same slow-speed precision; for A/B tests) |
-| `pointer.tracking_speed` | `0.6875` | The macOS slider. Steps: `0, 0.125, 0.5, 0.6875, 0.875, 1, 1.5, 2, 2.5, 3`. Each step is a different Apple curve: lower steps accelerate less, while slow movement stays nearly the same. One step down from the default is `0.5`. Copy your Mac's `defaults read -g com.apple.mouse.scaling` for an exact match. |
-| `pointer.speed` | `1.0` | Overall multiplier; keeps the curve's shape |
-| `pointer.acceleration` | `1.0` | 0 = no acceleration … 1 = Apple's curve |
-| `pointer.algorithm` | `"table"` | `"table"` = current macOS (measured); `"parametric"` = macOS 10.11/10.12 |
-| `pointer.report_rate` | `0` | 0 = per report, exactly like macOS. Otherwise normalize to this rate (Hz), if the mouse polls differently here than on your Mac |
-| `scroll.enabled` | `true` | Scroll acceleration on/off |
-| `scroll.vertical_strength` | `1.0` | 0 = 1:1, 1 = Mac-like (curve is provisional) |
-| `scroll.horizontal_strength` | `0.0` | Thumb wheel; pass-through by default |
-| `devices.<id>.enabled` | `true` | Per device |
-| `devices.<id>.dpi` | `400` | The resolution macOS assumes for this mouse (400 when the mouse doesn't declare one, which is the MX Master's case). Lower = faster. |
-| `devices.<id>.allow_combined` | `true` | Grab nodes that also declare keyboard keys (MX Master over Bluetooth) |
+## Development
 
-Device ids are `vendor:product:name:uniq-or-phys`; the daemon will show them
-in the UI (coming).
+See [docs/development.md](docs/development.md): running from the source
+tree, tests, building the package, releasing. Design decisions and how
+they differ from the original plan are in
+[docs/decisions.md](docs/decisions.md).
 
-## Tests
+## Credits
 
-```bash
-python3 -m unittest discover -s tests -t .
-```
+- The acceleration algorithm and its default table are ported from Apple's
+  [IOHIDFamily](https://github.com/apple-oss-distributions/IOHIDFamily)
+  (Apple Public Source License 2.0). MacFeel is not affiliated with or
+  endorsed by Apple.
+- The measurements of real Macs used to verify the port (and embedded in the
+  tests) come from INRIA's
+  [libpointing](https://github.com/INRIA/libpointing) project (EchoMouse).
+- Insights from [Mac Mouse Fix](https://github.com/noah-nuebling/mac-mouse-fix)
+  and [LinearMouse](https://github.com/linearmouse/linearmouse) pointed
+  the research in the right direction.
 
-Unit tests cover the curve (including Apple's per-report numbers), scroll,
-pipeline (sub-pixel accumulation, direction, timestamps, idle gaps), device
-rules and config. To record a real event stream for replay tests (motion,
-wheel and buttons only; key events are never recorded):
+## License
 
-```bash
-python3 tools/record.py /dev/input/eventN recordings/mx-slow.jsonl
-```
-
-## Matching your Mac exactly
-
-On the Mac, with the same mouse connected, run `bash tools/mac-probe.sh >
-mac-probe.txt`. It is read-only and prints the slider value, the curves
-macOS uses, the resolution it assumes for the mouse and its report
-interval. Those numbers go straight into the settings above. A calibration
-page for side-by-side measurement comes in milestone 7.
+[MIT](LICENSE)
