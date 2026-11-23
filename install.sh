@@ -60,7 +60,7 @@ fi
 sleep 1
 if systemctl is-active --quiet macfeeld; then
     say "Done. MacFeel is active: look for the mouse icon in the top bar,"
-    say "or open \"MacFeel\" from your apps. Uninstall with: macfeel-uninstall"
+    say "or open \"MacFeel\" from your apps. Status: macfeel   Uninstall: macfeel uninstall"
 else
     warn "The service did not start. See: journalctl -u macfeeld -n 50"
     exit 1

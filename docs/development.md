@@ -28,7 +28,8 @@ mouse ──evdev (grabbed)──▶ macfeeld ──uinput──▶ "<name> (Mac
 | `tools/record.py` | Record a mouse's raw events for replay tests |
 | `tools/build-deb.sh`, `packaging/` | Build `dist/macfeel_<version>_all.deb` |
 | `data/` | systemd unit, udev rule, desktop entries, icons |
-| `install.sh`, `uninstall.sh` | Install / remove (uninstall is installed as `macfeel-uninstall`) |
+| `install.sh`, `uninstall.sh` | Install / remove (uninstall is installed as `macfeel-uninstall`, also run by `macfeel uninstall`) |
+| `Makefile`, `tools/release.sh` | `make test`, `make deb`, `make install`, `make release`, … (`make` lists them) |
 
 Background reading: [mac-curve.md](mac-curve.md) (the algorithm and its
 sources), [decisions.md](decisions.md) (every deviation from the original
@@ -93,18 +94,23 @@ python3 tools/record.py /dev/input/eventN recordings/mx-slow.jsonl
 ## Building and releasing
 
 ```bash
-tools/build-deb.sh            # -> dist/macfeel_<version>_all.deb and dist/macfeel_all.deb
-./install.sh                  # build + install from the checkout
+make deb                      # -> dist/macfeel_<version>_all.deb and dist/macfeel_all.deb
+make install                  # build + install from the checkout
 ```
 
 To publish a release:
 
-1. Update the version in `macfeel/__init__.py` and add a section to `CHANGELOG.md`.
-2. Commit, then tag and push: `git tag v0.2.0 && git push origin main v0.2.0`.
+1. While working, add entries under `## Unreleased` in `CHANGELOG.md`.
+2. Run `make release` (patch bump) or `make release BUMP=minor` / `BUMP=major`.
+   It checks that you're on a clean `main` in sync with GitHub, that the
+   changelog has entries and that the tests pass, shows what it will do and
+   asks. Then it bumps `macfeel/__init__.py`, turns `## Unreleased` into the
+   version heading, commits, tags `vX.Y.Z` and pushes `main` and the tag.
 3. The *Release* workflow checks that the tag matches the version, runs the
    tests, builds the `.deb` and creates the GitHub release with both
-   `macfeel_<version>_all.deb` and `macfeel_all.deb`. The installer
-   one-liner downloads the latter from the latest release.
+   `macfeel_<version>_all.deb` and `macfeel_all.deb`, using the changelog
+   section as release notes. The installer one-liner downloads the latter
+   from the latest release.
 
 First-time setup of the repository:
 

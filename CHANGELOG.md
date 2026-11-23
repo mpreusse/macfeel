@@ -5,6 +5,7 @@
 - New `macfeel` command: status, pause/resume, settings, calibrate,
   uninstall (`macfeel -h`).
 - `macfeel status` shows the version of the running service.
+- `make release` tags and pushes the next version (see docs/development.md).
 
 ## 0.2.0
 

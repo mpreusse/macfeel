@@ -53,7 +53,7 @@ tested so far.
 **Uninstall:**
 
 ```bash
-macfeel uninstall
+macfeel uninstall          # on 0.2.0, which has no `macfeel` command yet: macfeel-uninstall
 ```
 
 This restores GNOME's mouse settings and removes everything: service, udev
