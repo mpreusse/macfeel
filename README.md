@@ -3,8 +3,8 @@
 Makes an external mouse on Ubuntu (GNOME, Wayland or X11) move like it does
 on macOS, using a port of Apple's own pointer-acceleration algorithm.
 
-**Status:** early development. The daemon runs manually from a terminal
-(milestones 1–2). The tray icon, settings window and installer come next.
+**Status:** early development. The daemon, tray icon and settings window
+run manually from a terminal. The installer comes next.
 
 - [docs/decisions.md](docs/decisions.md): where and why we deviate from the
   original [specs.md](specs.md); answers to its open questions.
@@ -25,12 +25,14 @@ releases the grab and the mouse works normally again immediately.
 
 | Module | Purpose |
 |---|---|
-| `macfeel/curve.py` | Apple's parametric curve (pure math) |
+| `macfeel/curve.py` | Apple's table and parametric algorithms (pure math) |
 | `macfeel/scroll.py` | Scroll acceleration, hi-res/low-res consistent (pure) |
 | `macfeel/pipeline.py` | Per-frame processing (pure) and the device/uinput wrapper |
 | `macfeel/devices.py` | Which devices to grab (pure rules) and gathering facts from udev |
 | `macfeel/daemon.py` | Main loop: discovery, hotplug, config reload, watchdog |
 | `macfeel/control.py`, `ipc.py` | Control socket (server and client) |
+| `macfeel/tray.py`, `settings.py` | Tray icon (GTK3 + AppIndicator), settings window (GTK4 + libadwaita) |
+| `macfeel/gnome.py`, `uilink.py` | GNOME mouse settings handling; UI connection to the daemon |
 | `tools/record.py` | Record a mouse's raw events for replay tests |
 | `tools/mac-probe.sh` | Read-only: dump macOS's live acceleration settings |
 
@@ -55,16 +57,16 @@ membership in the `input` group (for read access to `/dev/input/event*` and
    gsettings set org.gnome.desktop.peripherals.mouse accel-profile flat
    gsettings set org.gnome.desktop.peripherals.mouse speed 0
    ```
-3. **Run the daemon:**
+3. **Run the daemon, tray and settings window**, each in its own regular
+   terminal (not VS Code's, see
+   [decisions.md](docs/decisions.md#tray-gtk3--ayatanaappindicator-as-specified-like-toshy)):
    ```bash
    python3 -m macfeel.daemon        # Ctrl+C gives the mouse back
+   python3 -m macfeel.tray          # top-bar icon; "Settings…" opens the window
+   python3 -m macfeel.settings      # or open the settings window directly
    ```
-4. **Tweak it live.** Edit `macfeel-dev.json` in the project folder (it
-   only holds what differs from the defaults). Changes apply within a
-   second. For example, one slider step slower than the Mac default:
-   ```json
-   {"pointer": {"tracking_speed": 0.5}}
-   ```
+   Settings are stored in `macfeel-dev.json` in the project folder (only
+   values that differ from the defaults).
 
 ## Settings
 
@@ -74,9 +76,9 @@ membership in the `input` group (for read access to `/dev/input/event*` and
 | `pointer.preset` | `"mac"` | `"mac"`, `"mac-light"` (60 % acceleration), `"linear"` (no acceleration, same slow-speed precision; for A/B tests) |
 | `pointer.tracking_speed` | `0.6875` | The macOS slider. Steps: `0, 0.125, 0.5, 0.6875, 0.875, 1, 1.5, 2, 2.5, 3`. Each step is a different Apple curve: lower steps accelerate less, while slow movement stays nearly the same. One step down from the default is `0.5`. Copy your Mac's `defaults read -g com.apple.mouse.scaling` for an exact match. |
 | `pointer.speed` | `1.0` | Overall multiplier; keeps the curve's shape |
-| `pointer.acceleration` | `1.0` | 0 = no acceleration, 1 = Apple's curve, >1 = stronger |
-| `pointer.smoothing_ms` | `30` | Time constant of speed smoothing |
-| `pointer.report_rate` | `67` | Advanced: reproduce Apple's per-report behaviour for a mouse reporting at this rate on the Mac |
+| `pointer.acceleration` | `1.0` | 0 = no acceleration … 1 = Apple's curve |
+| `pointer.algorithm` | `"table"` | `"table"` = current macOS (measured); `"parametric"` = macOS 10.11/10.12 |
+| `pointer.report_rate` | `0` | 0 = per report, exactly like macOS. Otherwise normalize to this rate (Hz), if the mouse polls differently here than on your Mac |
 | `scroll.enabled` | `true` | Scroll acceleration on/off |
 | `scroll.vertical_strength` | `1.0` | 0 = 1:1, 1 = Mac-like (curve is provisional) |
 | `scroll.horizontal_strength` | `0.0` | Thumb wheel; pass-through by default |

@@ -173,7 +173,8 @@ class Window(Adw.ApplicationWindow):
         self.build()
         self.gnome.settings.connect("changed::accel-profile", lambda *_: self.update_banner())
         self.link = DaemonLink(["status", "live"], self.on_message, self.on_connected)
-        self.on_connected(self.link.connected)
+        self.on_connected(False)
+        self.link.start()
 
     # --- layout ------------------------------------------------------------
 

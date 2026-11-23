@@ -101,17 +101,35 @@ the same number, so the per-device setting is "resolution as macOS sees
 it", default 400. A consequence that matches the Mac: changing the DPI in
 Solaar makes the pointer faster or slower.
 
-### Speed comes from timestamps (deliberate difference from Apple)
+### Current macOS's table algorithm, applied per report (spec §4.1 said: smoothed velocity from timestamps)
 
-Apple computes speed per HID report (counts per report × 67 / resolution)
-and assumes 67 reports/s. We measure counts per second from kernel
-timestamps (CLOCK_MONOTONIC via `EVIOCSCLOCKID`) and smooth them with a
-time-based EMA. The two agree for a mouse reporting at 67 Hz. For other
-rates, `pointer.report_rate` reproduces Apple's per-report behaviour (set
-it to the mouse's report rate on the Mac). Pending: measuring the Mac's
-actual rate with `tools/mac-probe.sh`.
+A first port used Apple's *parametric* curves with a timestamp-based,
+smoothed velocity. Research then showed that current macOS uses the
+*table* algorithm for mice: the modern driver doesn't publish
+`HIDAccelCurves`, so macOS falls back to `defaultAccelTable`. It applies
+the curve per HID report, with no timing and no smoothing.
+
+INRIA's libpointing measurements of a real macOS 15.3.2 machine match our
+table port exactly at all 10 slider positions. The parametric curves are
+off by up to 4×; they only match 10.11/10.12. So MacFeel now does what
+macOS does: counts per report → table curve. The parametric algorithm
+remains selectable (`pointer.algorithm`). `pointer.report_rate` can
+normalize a mouse that polls at a different rate on Linux than on the Mac.
+Details: [mac-curve.md](mac-curve.md).
+
+### Acceleration strength is capped at 1
+
+Values above 1 extrapolated beyond Apple's curve. On the curve's flat top,
+that made the output *decrease* with faster movement (caught by the
+monotonicity test). Use `pointer.speed` for "more".
 
 ## GNOME settings
+
+### This machine keeps flat / speed 0 permanently (user's choice)
+
+The user prefers GNOME at flat + speed 0 even when MacFeel is paused, so
+`~/.config/macfeel/gnome-backup.json` holds those values and "restore" is a
+no-op here. The backup/restore mechanism below stays, for everyone else.
 
 ### Set both `accel-profile=flat` and `speed=0` while active (spec §4.7 said: leave speed alone)
 
@@ -131,6 +149,19 @@ Pausing keeps the grab and forwards events unchanged. It is instant, and
 GNOME doesn't see devices disappear and reappear. Together with the tray
 restoring GNOME's acceleration, the mouse then feels like stock Ubuntu.
 `kill -9` still releases everything immediately (verified).
+
+## User interface
+
+### Tray: GTK3 + AyatanaAppIndicator (as specified), like Toshy
+
+GTK3 first seemed to crash on this system under Wayland ("schema
+`org.gnome.settings-daemon.plugins.xsettings` does not contain a key named
+`antialiasing`"). The cause is VS Code, which is installed as a snap: its
+terminals leak the snap's own, older GSettings schemas through
+`GSETTINGS_SCHEMA_DIR` and `XDG_DATA_DIRS`. In the normal session
+environment (autostart, app launcher, a regular terminal), GTK3 works;
+Toshy's tray uses the same stack. When launching UI processes from VS
+Code's terminal, unset those variables first.
 
 ## Packaging
 

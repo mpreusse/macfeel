@@ -64,6 +64,7 @@ class Tray:
         self.gnome.settings.connect("changed::accel-profile", lambda *_: self.update())
         self.link = DaemonLink(["status"], self.on_message, self.on_connected)
         self.update()
+        self.link.start()
 
     # --- daemon events ---------------------------------------------------
 

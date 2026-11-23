@@ -27,6 +27,17 @@ for key in HIDMouseAcceleration HIDPointerAcceleration HIDMouseScrollAcceleratio
 done
 
 echo
+echo "=== per-mouse values (services with usage Generic Desktop / Mouse)"
+MICE='{"PrimaryUsagePage":1,"PrimaryUsage":2}'
+for key in HIDMouseAcceleration HIDUseLinearScalingMouseAcceleration HIDPointerResolution \
+           HIDPointerReportRate ReportInterval; do
+    printf '%s = %s\n' "$key" "$(hidutil property --matching "$MICE" --get "$key" 2>&1 | tr -s ' \n' ' ')"
+done
+echo
+echo "--- effective accelerator (which algorithm macOS really uses: table or parametric)"
+hidutil property --matching "$MICE" --get ServiceFilterDebug 2>&1
+
+echo
 echo "=== hidutil list (pointing devices)"
 hidutil list 2>/dev/null | awk 'NR==1 || /Mouse|mouse|MX|Logi|Pointer/'
 

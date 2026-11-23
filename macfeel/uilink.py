@@ -22,7 +22,11 @@ class DaemonLink:
         self.client = None
         self.watch = None
         self.connected = False
+
+    def start(self):
+        """Connect (callbacks may fire immediately, so call this after storing the link)."""
         self._connect()
+        return self
 
     def _connect(self):
         try:
