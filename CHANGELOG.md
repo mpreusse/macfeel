@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.1
+
 - Installed commands (`macfeel`, tray, settings, service) no longer pick up
   Python code from the current directory (e.g. when run inside a source
   checkout); they always use the installed version.
