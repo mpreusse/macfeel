@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.0
+
 - New `macfeel` command: status, pause/resume, settings, calibrate,
   uninstall (`macfeel -h`).
 - `macfeel status` shows the version of the running service.
