@@ -19,7 +19,7 @@ gi.require_version("Graphene", "1.0")
 from gi.repository import Adw, Gdk, Gio, GLib, Graphene, Gsk, Gtk  # noqa: E402
 
 from . import config as cfg  # noqa: E402
-from . import curve  # noqa: E402
+from . import curve, scroll  # noqa: E402
 from .devices import VIRTUAL_SUFFIX  # noqa: E402
 from .gnome import GnomeMouse  # noqa: E402
 from .uilink import DaemonLink, calibration_page  # noqa: E402
@@ -260,17 +260,26 @@ class Window(Adw.ApplicationWindow):
             pointer.add(calibrate)
         page.add(pointer)
 
-        scrolling = Adw.PreferencesGroup(title="Scrolling",
-                                         description="Fast spins scroll further; slow notches stay 1:1.")
-        self.scroll_row = Adw.SwitchRow(title="Scroll acceleration")
+        scrolling = Adw.PreferencesGroup(
+            title="Scrolling",
+            description="Like on a Mac: slow, single notches scroll one step; "
+                        "spinning the wheel fast scrolls up to ~10× further per notch.")
+        self.scroll_row = Adw.SwitchRow(title="Mac scroll acceleration",
+                                        subtitle="Off: the wheel is passed through unchanged")
         self.scroll_row.connect("notify::active", lambda r, _: self.change({"scroll": {"enabled": r.get_active()}}))
         scrolling.add(self.scroll_row)
-        row, self.vscroll_scale, self.vscroll_label = self.scale_row("Wheel", 0, 2, 0.1, [(0, "1:1"), (1, None)])
-        self.vscroll_scale.connect("value-changed", self.on_scroll_scale, "vertical_strength", self.vscroll_label)
+        row, self.sspeed_scale, self.sspeed_label = self.scale_row(
+            "Scroll speed", 25, 300, 5, [(100, None)])
+        self.sspeed_scale.connect("value-changed", self.on_scroll_speed)
         scrolling.add(row)
-        row, self.hscroll_scale, self.hscroll_label = self.scale_row("Thumb wheel", 0, 2, 0.1, [(0, "1:1"), (1, None)])
-        self.hscroll_scale.connect("value-changed", self.on_scroll_scale, "horizontal_strength", self.hscroll_label)
+        row, self.saccel_scale, self.saccel_label = self.scale_row(
+            "Acceleration", 0, 2, 0.0625, [(0, "none"), (scroll.DEFAULT_ACCELERATION, None)])
+        self.saccel_scale.connect("value-changed", self.on_scroll_accel)
         scrolling.add(row)
+        self.shoriz_row = Adw.SwitchRow(title="Accelerate the thumb wheel too",
+                                        subtitle="Horizontal scrolling; macOS accelerates it as well")
+        self.shoriz_row.connect("notify::active", lambda r, _: self.change({"scroll": {"horizontal": r.get_active()}}))
+        scrolling.add(self.shoriz_row)
         page.add(scrolling)
 
         self.devices_group = Adw.PreferencesGroup(title="Mice")
@@ -344,6 +353,7 @@ class Window(Adw.ApplicationWindow):
             self.update_banner()
 
     def load_config(self, conf):
+        conf = cfg.merge(cfg.DEFAULTS, conf)   # tolerate a daemon of another version
         self.config = conf
         p, s = conf["pointer"], conf["scroll"]
         self.updating = True
@@ -357,10 +367,11 @@ class Window(Adw.ApplicationWindow):
         self.algo_row.set_selected(list(ALGORITHMS).index(p.get("algorithm", "table")))
         self.rate_row.set_value(p.get("report_rate", 0))
         self.scroll_row.set_active(s["enabled"])
-        for scale, label, key in ((self.vscroll_scale, self.vscroll_label, "vertical_strength"),
-                                  (self.hscroll_scale, self.hscroll_label, "horizontal_strength")):
-            scale.set_value(s[key])
-            label.set_label(self.scroll_text(s[key]))
+        self.sspeed_scale.set_value(round(s["speed"] * 100))
+        self.sspeed_label.set_label(f"{round(s['speed'] * 100)} %")
+        self.saccel_scale.set_value(s["acceleration"])
+        self.saccel_label.set_label(self.scroll_accel_text(s["acceleration"]))
+        self.shoriz_row.set_active(s["horizontal"])
         self.updating = False
         self.graph.set_pointer(p)
 
@@ -368,8 +379,10 @@ class Window(Adw.ApplicationWindow):
         self.tracking_label.set_label(f"{step_label(nearest_step(value))} ({value:g})")
 
     @staticmethod
-    def scroll_text(v):
-        return "off (1:1)" if v <= 0 else f"{v:.1f}×"
+    def scroll_accel_text(v):
+        if abs(v - scroll.DEFAULT_ACCELERATION) < 1e-6:
+            return f"Mac default ({v:g})"
+        return "none (1:1)" if v <= 0 else f"{v:g}"
 
     def update_banner(self):
         st = self.status
@@ -480,10 +493,15 @@ class Window(Adw.ApplicationWindow):
     def on_preset(self, row, _):
         self.change({"pointer": {"preset": PRESETS[row.get_selected()]}})
 
-    def on_scroll_scale(self, scale, key, label):
-        value = round(scale.get_value(), 1)
-        label.set_label(self.scroll_text(value))
-        self.change({"scroll": {key: value}})
+    def on_scroll_speed(self, scale):
+        pct = int(round(scale.get_value()))
+        self.sspeed_label.set_label(f"{pct} %")
+        self.change({"scroll": {"speed": pct / 100}})
+
+    def on_scroll_accel(self, scale):
+        value = round(scale.get_value() / 0.0625) * 0.0625   # snap; 0.3125 is a step
+        self.saccel_label.set_label(self.scroll_accel_text(value))
+        self.change({"scroll": {"acceleration": value}})
 
     def on_device_enabled(self, row, _, dev_id):
         settings = {"enabled": row.get_active()}

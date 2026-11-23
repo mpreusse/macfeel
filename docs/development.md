@@ -66,9 +66,10 @@ The UI writes these through the daemon; they end up in
 | `pointer.acceleration` | `1.0` | 0 = no acceleration … 1 = Apple's curve |
 | `pointer.algorithm` | `"table"` | `"table"` = current macOS; `"parametric"` = macOS 10.11/10.12 |
 | `pointer.report_rate` | `0` | 0 = per report, like macOS; otherwise normalize to this rate (Hz) |
-| `scroll.enabled` | `true` | Scroll acceleration on/off |
-| `scroll.vertical_strength` | `1.0` | 0 = 1:1, 1 = default |
-| `scroll.horizontal_strength` | `0.0` | Thumb wheel; pass-through by default |
+| `scroll.enabled` | `true` | Mac scroll acceleration; `false` = wheel events unchanged |
+| `scroll.acceleration` | `0.3125` | macOS's scroll acceleration value (its default); 0 = none |
+| `scroll.speed` | `1.0` | Distance per notch |
+| `scroll.horizontal` | `false` | Also accelerate the horizontal / thumb wheel |
 | `devices.<id>.enabled` | `true` | Per mouse |
 | `devices.<id>.dpi` | `400` | Resolution macOS assumes for the mouse (400 unless the mouse declares one). Lower = faster |
 | `devices.<id>.allow_combined` | `true` | Grab nodes that also declare keyboard keys (e.g. MX Master over Bluetooth) |

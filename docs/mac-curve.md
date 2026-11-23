@@ -93,6 +93,47 @@ Slow movement (1–3 counts per report) stays nearly the same.
 output = counts × slider value, with no curve and no resolution term. Not
 implemented yet. The `linear` preset is the closest equivalent.
 
+## Scrolling
+
+Same source, `IOHIDScrollAccelerator::accelerate` (`IOHIDAcceleration.cpp`)
+and `setupScrollAcceleration` (`IOHIDPointerScrollFilter.cpp`). Ported in
+`macfeel/scroll.py`. Per wheel report (one axis, in notches):
+
+1. Keep the last up to 8 reports (time since the previous one, notches). A
+   direction change or a pause over 500 ms starts over.
+2. Walk back from the newest: sum notches and intervals. An interval over
+   150 ms counts as 150 and ends the walk; the walk also ends once the
+   intervals reach 500 ms.
+3. `v = (A·dt² − B·dt + C) · notches`, with dt = the average interval in ms
+   (clamped 1–150) and notches = the average per report.
+   A = 2/65536, B = 0x3bb/65536, C = 0x18041/65536. With more than 2
+   reports, `v *= √count`.
+4. Look `v` up in the same `defaultAccelTable` as the pointer, built with
+   the scroll settings (acceleration 0.3125 = `EV_DEFAULTSCROLLACCELLEVEL`,
+   resolution 9 = `kDefaultScrollFixedResolution`, rate 67), and multiply
+   by 0.1 (`SCROLL_PIXEL_TO_WHEEL_SCALE`).
+
+The result per notch of steady spinning:
+
+| Notches per second | ≤ 7 | 10 | 15 | 20 | 30 | 50 | 100 |
+|---|---|---|---|---|---|---|---|
+| Apple's value | ~0.002 | 2.0 | 6.0 | 7.1 | 8.3 | 9.0 | 9.4 |
+| MacFeel's multiplier | 1× | 2.0× | 6.0× | 7.1× | 8.3× | 9.0× | 9.4× |
+
+**The one assumption.** What macOS turns this value into (lines, pixels)
+happens in closed source. The older open-source kernel path rounded any
+non-zero value up to one line, which fits everyday experience (a slow notch
+always scrolls). MacFeel treats the value as "notches' worth" with a
+minimum of 1: slow notches scroll 1:1, fast spinning up to ~9.4× per notch.
+How far one notch scrolls is then up to each Linux app, so
+`scroll.speed` scales the base distance, and the calibration page measures
+both against your Mac.
+
+**Hi-res wheels.** On Linux the MX Master reports 1/8 notches; macOS sees
+whole notches. Apple's estimator is fed one "virtual notch" per 120 hi-res
+units of travel, and its multiplier applies to the fine-grained stream.
+Tests check that both kinds of wheel give the same result.
+
 ## Where MacFeel differs, deliberately
 
 - `pointer.speed`: an overall multiplier that keeps the curve's shape.

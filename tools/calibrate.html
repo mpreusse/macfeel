@@ -59,6 +59,19 @@
   <p><button class="primary" id="copy">Copy results</button>
      <button id="reset">Clear</button> <span id="copied" class="muted"></span></p>
 
+  <h2>Scrolling</h2>
+  <div class="card">
+    <p>Put a mark on the scroll wheel (a bit of tape or a pen dot). For each row, click <b>Measure</b>,
+    then turn the wheel <b>half a turn downwards</b> (by the mark) at the requested pace, and wait a second.
+    If your wheel can spin freely (e.g. MX Master), switch it to the clicking (ratchet) mode first.
+    Use the <b>same browser</b> on both machines: browsers differ in how far one notch scrolls.</p>
+  </div>
+  <table class="card" id="scrolls">
+    <thead><tr><th>Pace</th><th>How</th><th>Tries</th><th>Scrolled</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <p id="scroll-status" class="muted"></p>
+
   <h2>Compare with the other machine</h2>
   <p class="muted">Paste the results copied on the other computer. The page works out which one is the Mac.</p>
   <textarea id="other" placeholder='{"platform": "macOS", ...}'></textarea>
@@ -78,6 +91,10 @@ const SPEEDS = [
   { key: "medium", label: "Medium", how: "about 1 second, normal" },
   { key: "fast",   label: "Fast",   how: "a quick flick, ~0.3 s" },
 ];
+const SCROLLS = [
+  { key: "scroll_slow", label: "Slow", how: "notch by notch, about 2 notches per second" },
+  { key: "scroll_fast", label: "Fast", how: "one quick flick" },
+];
 const store = (() => { try { return window.localStorage; } catch (e) { return null; } })();
 let tries = load();
 let active = null;   // { key, dx, dy, t0, t1 }
@@ -94,6 +111,7 @@ function summary(key) {
   const list = tries[key] || [];
   if (!list.length) return null;
   const avg = f => list.reduce((s, t) => s + f(t), 0) / list.length;
+  if (key.startsWith("scroll")) return { px: avg(t => t.px), n: list.length };
   return { px_per_cm: avg(t => t.px / t.cm), cm_per_s: avg(t => t.cm / t.s), n: list.length };
 }
 
@@ -109,6 +127,17 @@ function render() {
       <td><button class="primary">Measure</button></td>`;
     tr.querySelector("button").onclick = () => start(sp);
     body.appendChild(tr);
+  }
+  const sbody = document.querySelector("#scrolls tbody");
+  sbody.innerHTML = "";
+  for (const sc of SCROLLS) {
+    const s = summary(sc.key);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td><b>${sc.label}</b></td><td class="muted">${sc.how}</td><td>${s ? s.n : 0}</td>
+      <td>${s ? `<span class="big">${s.px.toFixed(0)}</span> px` : "–"}</td>
+      <td><button class="primary">Measure</button></td>`;
+    tr.querySelector("button").onclick = () => startScroll(sc);
+    sbody.appendChild(tr);
   }
   document.getElementById("dist-label").textContent = document.getElementById("distance").selectedOptions[0].text;
   document.getElementById("sysinfo").innerHTML =
@@ -156,9 +185,33 @@ document.addEventListener("click", () => {
   render();
 });
 
+// Scrolling: sum the wheel deltas (in CSS px) until the wheel rests for 1.2 s.
+let scrolling = null;   // { key, px, timer }
+function startScroll(sc) {
+  scrolling = { key: sc.key, px: 0, timer: null };
+  document.getElementById("scroll-status").textContent =
+    `${sc.label}: turn the wheel half a turn downwards now (${sc.how}).`;
+}
+window.addEventListener("wheel", e => {
+  if (!scrolling) return;
+  e.preventDefault();                       // keep the page still while measuring
+  const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? window.innerHeight : 1;
+  scrolling.px += e.deltaY * unit;
+  clearTimeout(scrolling.timer);
+  scrolling.timer = setTimeout(() => {
+    const done = scrolling;
+    scrolling = null;
+    document.getElementById("scroll-status").textContent = "";
+    if (Math.abs(done.px) < 1) return;
+    (tries[done.key] = tries[done.key] || []).push({ px: Math.abs(done.px) });
+    save();
+    render();
+  }, 1200);
+}, { passive: false });
+
 function results() {
   const out = { platform: platform(), screen: [screen.width, screen.height], dpr: devicePixelRatio };
-  for (const sp of SPEEDS) out[sp.key] = summary(sp.key);
+  for (const sp of SPEEDS.concat(SCROLLS)) out[sp.key] = summary(sp.key);
   return out;
 }
 document.getElementById("copy").onclick = async () => {
@@ -204,6 +257,30 @@ function compare() {
       ${mac.medium.cm_per_s.toFixed(0)} vs Ubuntu ${linux.medium.cm_per_s.toFixed(0)} cm/s at medium).</span>`;
   }
   box.innerHTML = `<table><thead><tr><th>Speed</th><th>Mac px/cm</th><th>Ubuntu px/cm</th><th>Mac ÷ Ubuntu</th></tr></thead>
+    <tbody>${rows}</tbody></table><p>${advice}</p>` + compareScroll(mac, linux);
+}
+
+// Slow notches show the distance per notch (Scroll speed); the fast/slow
+// ratio shows how strong the acceleration is (Acceleration).
+function compareScroll(mac, linux) {
+  const ok = k => mac[k] && linux[k];
+  const rows = SCROLLS.map(sc => `<tr><td>${sc.label}</td>
+    <td>${mac[sc.key] ? mac[sc.key].px.toFixed(0) : "–"}</td>
+    <td>${linux[sc.key] ? linux[sc.key].px.toFixed(0) : "–"}</td>
+    <td>${ok(sc.key) ? (mac[sc.key].px / linux[sc.key].px * 100).toFixed(0) + " %" : "–"}</td></tr>`).join("");
+  let advice = "Measure both scroll paces on both machines for a recommendation.";
+  if (ok("scroll_slow") && ok("scroll_fast")) {
+    const base = mac.scroll_slow.px / linux.scroll_slow.px;
+    const accelMac = mac.scroll_fast.px / mac.scroll_slow.px;
+    const accelLinux = linux.scroll_fast.px / linux.scroll_slow.px;
+    advice = `Set <b>Scroll speed</b> to about <span class="big">${Math.round(base * 100 / 5) * 5} %</span>
+      of its current value. Fast spinning scrolls ${accelMac.toFixed(1)}× further than slow on the Mac
+      and ${accelLinux.toFixed(1)}× on Ubuntu: `;
+    if (accelMac / accelLinux > 1.2) advice += "raise the scroll <b>Acceleration</b>.";
+    else if (accelMac / accelLinux < 0.83) advice += "lower the scroll <b>Acceleration</b>.";
+    else advice += "the acceleration matches.";
+  }
+  return `<h3>Scrolling</h3><table><thead><tr><th>Pace</th><th>Mac px</th><th>Ubuntu px</th><th>Mac ÷ Ubuntu</th></tr></thead>
     <tbody>${rows}</tbody></table><p>${advice}</p>`;
 }
 render();

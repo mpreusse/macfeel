@@ -64,8 +64,8 @@ class Daemon:
         return PointerSettings(
             curve=curve.from_config(p, dpi), dpi=dpi, report_rate=p["report_rate"],
             passthrough=not conf["enabled"],
-            scroll_enabled=s["enabled"], vertical_strength=s["vertical_strength"],
-            horizontal_strength=s["horizontal_strength"])
+            scroll_enabled=s["enabled"], scroll_acceleration=s["acceleration"],
+            scroll_speed=s["speed"], scroll_horizontal=s["horizontal"])
 
     def consider(self, path):
         """Look at one event node and grab it if it's a mouse we should handle."""

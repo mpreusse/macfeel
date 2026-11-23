@@ -141,6 +141,18 @@ Values above 1 extrapolated beyond Apple's curve. On the curve's flat top,
 that made the output *decrease* with faster movement (caught by the
 monotonicity test). Use `pointer.speed` for "more".
 
+### Scrolling: Apple's scroll accelerator, minimum one notch (spec §4.4 said: "Mac-like")
+
+The first version used an invented curve. It is now a port of
+`IOHIDScrollAccelerator` (see [mac-curve.md](mac-curve.md#scrolling)),
+which is much stronger than the invented one: 1:1 up to ~7 notches/s, then
+2× at 10, 7× at 20, ~9.4× at 100 notches/s. The step from Apple's value to
+on-screen distance is closed source. We assume "at least one notch",
+matching the older kernel code, and expose `scroll.speed` (distance per
+notch) plus a scroll test on the calibration page. The thumb wheel is
+accelerated only if `scroll.horizontal` is on (macOS accelerates it too,
+but a pass-through default is gentler for a thumb wheel).
+
 ## GNOME settings
 
 ### This machine keeps flat / speed 0 permanently (user's choice)

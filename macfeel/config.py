@@ -21,9 +21,10 @@ DEFAULTS = {
         "report_rate": 0,         # 0 = per report like macOS; >0 = normalize to this rate (Hz)
     },
     "scroll": {
-        "enabled": True,
-        "vertical_strength": 1.0,   # 0 = 1:1, 1 = Mac-like
-        "horizontal_strength": 0.0, # thumb wheel: pass-through by default
+        "enabled": True,          # Mac scroll acceleration; False = wheel events unchanged
+        "acceleration": 0.3125,   # macOS scroll acceleration value (its default)
+        "speed": 1.0,             # distance per notch (1 = like an unaccelerated notch)
+        "horizontal": False,      # also accelerate the horizontal / thumb wheel
     },
     # Per-device overrides keyed by stable device id (see devices.stable_id):
     #   {"enabled": bool, "dpi": int, "allow_combined": bool}

@@ -31,14 +31,16 @@ class PointerSettings:
     """What a FrameProcessor needs from the config, resolved for one device."""
 
     def __init__(self, curve, dpi, report_rate=0, passthrough=False,
-                 scroll_enabled=True, vertical_strength=1.0, horizontal_strength=0.0):
+                 scroll_enabled=True, scroll_acceleration=scroll.DEFAULT_ACCELERATION,
+                 scroll_speed=1.0, scroll_horizontal=False):
         self.curve = curve                    # object with .px_per_count(counts_per_report)
         self.dpi = dpi                        # resolution the curve was built for (for display)
         self.report_rate = report_rate        # 0 = use counts per report as-is (like macOS)
         self.passthrough = passthrough
         self.scroll_enabled = scroll_enabled
-        self.vertical_strength = vertical_strength
-        self.horizontal_strength = horizontal_strength
+        self.scroll_acceleration = scroll_acceleration
+        self.scroll_speed = scroll_speed
+        self.scroll_horizontal = scroll_horizontal
 
 
 class MotionAccelerator:
@@ -138,8 +140,9 @@ class FrameProcessor:
                 out.append((EV_REL, REL_Y, oy))
 
         if wheel:
-            for key, strength in (("v", s.vertical_strength), ("h", s.horizontal_strength)):
-                out.extend(self.scroll[key].process(wheel, t, strength))
+            for key, accelerate in (("v", True), ("h", s.scroll_horizontal)):
+                out.extend(self.scroll[key].process(wheel, t, accelerate,
+                                                    s.scroll_acceleration, s.scroll_speed))
         return out
 
     def live(self):

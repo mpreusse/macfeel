@@ -76,7 +76,9 @@ The **MacFeel** app (also under *Settings…* in the tray menu) has:
   your Mac's.
 - **A live graph** of the acceleration curve, with a dot that follows your
   mouse, and the Mac default as a dashed line for comparison.
-- **Scrolling**: faster wheel spins scroll further; slow notches stay 1:1.
+- **Scrolling**: Apple's scroll acceleration. Slow, single notches scroll
+  one step; spinning the wheel fast scrolls up to ~9× further per notch,
+  like on a Mac. *Scroll speed* sets how far one notch goes.
 - **Mice**: turn MacFeel on or off per mouse.
 - **A test area** to move and scroll in.
 
@@ -89,12 +91,14 @@ uninstall.
 1. **Tracking speed:** on your Mac, run
    `defaults read -g com.apple.mouse.scaling` and pick the same value in
    MacFeel (the default is 0.6875, the fourth step).
-2. **Overall speed:** the Mac and Ubuntu may use different screen sizes and
-   scaling. Open *Match your Mac* in the settings window. It is a page you
-   run in a browser on both machines: move the mouse 10 cm along a ruler at
-   three speeds, paste one result into the other, and it tells you which
-   Overall speed (and, if needed, which Tracking speed) to use. The page is
-   also at [tools/calibrate.html](tools/calibrate.html).
+2. **Overall speed and Scroll speed:** the Mac and Ubuntu may use different
+   screen sizes and scaling, and Linux apps decide themselves how far one
+   wheel notch scrolls. Open *Match your Mac* in the settings window. It is
+   a page you run in a browser on both machines: move the mouse 10 cm along
+   a ruler at three speeds and turn the wheel half a turn slowly and
+   quickly, then paste one result into the other. It tells you which
+   Overall speed, Tracking speed, Scroll speed and scroll Acceleration to
+   use. The page is also at [tools/calibrate.html](tools/calibrate.html).
 3. **Mouse DPI:** use the same DPI on both machines. macOS doesn't
    compensate for DPI either, so a higher DPI makes the pointer faster
    there too.
