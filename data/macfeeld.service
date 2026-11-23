@@ -13,10 +13,14 @@ Restart=on-failure
 RestartSec=2
 Nice=-5
 
-# Least privilege: own system user; access to mice and /dev/uinput only via
-# the ACLs set by /usr/lib/udev/rules.d/70-macfeel.rules.
+# Own system user. Device access comes from the "input" group (input devices
+# and, via 70-macfeel.rules, /dev/uinput). The kernel would allow keyboards
+# too; MacFeel only ever opens devices udev tags as mice (see devices.py and
+# docs/decisions.md). Per-user ACLs were tried and don't survive logind's
+# uaccess resets.
 User=macfeel
 Group=macfeel
+SupplementaryGroups=input
 StateDirectory=macfeel
 RuntimeDirectory=macfeel
 RuntimeDirectoryMode=0755

@@ -217,13 +217,28 @@ more (`SystemCallFilter=@system-service`, `MemoryDenyWriteExecute`, an empty
 capability set, …). The packaged daemon was run under these restrictions
 as a transient unit to check that Python, pyudev and evdev work.
 
-### The udev ACL rule covers combined mouse/keyboard nodes
+### Device access via the `input` group, not per-user ACLs (spec §6.2 said: ACLs only)
 
-Because combined nodes are grabbed by default, the rule grants the
-`macfeel` user access to everything udev tags `ID_INPUT_MOUSE=1`, except
-touchpads, tablets, joysticks, pointing sticks and uinput devices, even if
-the node also has `ID_INPUT_KEYBOARD=1`. Real keyboards (without the mouse
-tag) stay inaccessible.
+The spec wanted a udev rule granting the `macfeel` user ACL access to mice
+only. That failed in practice. Toshy's udev rule tags every input device
+`uaccess`, and the uaccess step (`73-seat-late.rules`) and logind (on every
+login or session switch) *reset* the per-user ACL entries of such devices.
+Our grant was wiped right after being set, and the service saw "no
+permission".
+
+Decided with the user: the service runs with `SupplementaryGroups=input`,
+which is robust (group permissions aren't reset) and is effectively what
+Toshy, keyd and input-remapper do. The kernel would let it open keyboards
+too. What keeps it to mice:
+
+- The code opens only nodes udev tags `ID_INPUT_MOUSE=1` that aren't
+  virtual (checked before opening).
+- The sandbox: no network (`IPAddressDeny=any`, Unix/netlink sockets only),
+  nothing writable except its state directory, no capabilities, and nothing
+  is ever logged or stored about input.
+
+`/dev/uinput` is root-only on Ubuntu, so `70-macfeel.rules` makes it
+`root:input 0660`, which is the same as Toshy's rule.
 
 ### Control-socket allowlist: the user who ran `sudo apt install`
 

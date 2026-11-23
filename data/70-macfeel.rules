@@ -1,19 +1,5 @@
-# MacFeel: give the "macfeel" system user access to mice and /dev/uinput, and
-# nothing else. Uses ACLs, so device ownership/modes stay untouched (Toshy and
-# others rely on the defaults), and nobody is added to the "input" group (which
-# would expose all keyboards).
-#
-# Mice: what udev tags as a mouse, excluding touchpads, tablets, joysticks,
-# pointing sticks and virtual (uinput) devices. This includes "combined"
-# nodes such as the MX Master 3 over Bluetooth, whose HID descriptor also
-# declares keyboard keys; MacFeel forwards their key events untouched and
-# never logs them (see docs/decisions.md).
-ACTION=="remove", GOTO="macfeel_end"
-SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_MOUSE}=="1", \
-  ENV{ID_INPUT_TOUCHPAD}!="1", ENV{ID_INPUT_TABLET}!="1", ENV{ID_INPUT_JOYSTICK}!="1", \
-  ENV{ID_INPUT_POINTINGSTICK}!="1", DEVPATH!="/devices/virtual/input/*", \
-  RUN+="/usr/bin/setfacl -m u:macfeel:rw $devnode"
-
-# To create the virtual mice.
-KERNEL=="uinput", SUBSYSTEM=="misc", RUN+="/usr/bin/setfacl -m u:macfeel:rw $devnode"
-LABEL="macfeel_end"
+# MacFeel: the daemon runs with the "input" group (see macfeeld.service).
+# Input event devices are root:input 0660 by default; /dev/uinput is root-only
+# on Ubuntu, so open it to the "input" group as well, which is what Toshy's
+# rule does too. Needed to create the virtual mice.
+KERNEL=="uinput", SUBSYSTEM=="misc", GROUP="input", MODE="0660"

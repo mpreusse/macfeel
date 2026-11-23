@@ -13,9 +13,10 @@ on macOS, using a port of Apple's own pointer-acceleration algorithm.
 Once published on GitHub, the same works without a checkout:
 `curl -fsSL https://raw.githubusercontent.com/OWNER/macfeel/main/install.sh | bash`.
 
-This installs a system service (`macfeeld`, running as its own `macfeel`
-user with access to mice and `/dev/uinput` only), a tray icon that starts at
-login, and the "MacFeel" settings app. No reboot or re-login is needed.
+This installs a system service (`macfeeld`, running sandboxed as its own
+`macfeel` user with the `input` group; it only ever opens mice, see
+[decisions.md](docs/decisions.md#device-access-via-the-input-group-not-per-user-acls-spec-62-said-acls-only)),
+a tray icon that starts at login, and the "MacFeel" settings app. No reboot or re-login is needed.
 Re-run it to update.
 
 **Uninstall:** `macfeel-uninstall`. It restores GNOME's mouse settings and

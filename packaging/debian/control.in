@@ -2,7 +2,7 @@ Package: macfeel
 Version: @VERSION@
 Architecture: all
 Maintainer: MacFeel developers <macfeel@users.noreply.github.com>
-Depends: python3 (>= 3.12), python3-evdev, python3-pyudev, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, acl, systemd, udev, adduser
+Depends: python3 (>= 3.12), python3-evdev, python3-pyudev, python3-gi, gir1.2-gtk-4.0, gir1.2-adw-1, systemd, udev, adduser
 Section: utils
 Priority: optional
 Homepage: https://github.com/OWNER/macfeel

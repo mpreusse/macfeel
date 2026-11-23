@@ -75,8 +75,9 @@ class Daemon:
             udev_dev = pyudev.Devices.from_device_file(self.udev, path)
         except Exception:
             return
-        # Never even open anything udev doesn't call a mouse (keyboards!).
-        if udev_dev.properties.get("ID_INPUT_MOUSE") != "1":
+        # Never even open anything udev doesn't call a mouse (keyboards!),
+        # nor virtual devices (ours, Toshy's virtual keyboard, ...).
+        if udev_dev.properties.get("ID_INPUT_MOUSE") != "1" or "/devices/virtual/input/" in udev_dev.sys_path:
             return
 
         import evdev
