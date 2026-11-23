@@ -26,6 +26,6 @@ First public release.
 - Warns when another program (e.g. Toshy) has captured a mouse and shows the
   fix.
 - Calibration page to match cursor travel and scrolling against your Mac.
-- Debian package, `install.sh` and `macfeel uninstall`. Sandboxed system
+- Debian package, `install.sh` and `macfeel-uninstall`. Sandboxed system
   service; GNOME's own acceleration is switched off while active and
   restored afterwards.
